@@ -52,6 +52,16 @@ def logout_action():
     unset_jwt_cookies(response)
     return response
 
+@auth_views.route('/register', methods=['POST'])
+def register_action():
+    #TODO
+    return
+
+@auth_views.route('/register', methods=['GET'])
+def register_page():
+    return render_template('register.html')
+
+
 '''
 API Routes
 '''
