@@ -1,6 +1,7 @@
 import click, pytest, sys
-from flask import Flask
+from flask import Flask, session
 from flask.cli import with_appcontext, AppGroup
+from datetime import datetime
 
 from App.database import db, get_migrate
 from App.models import User
@@ -96,6 +97,19 @@ def list_user_command(format):
     else:
         print(get_all_assets_json())
 
+@asset_cli.command("search", help="Searches for an item")
+@click.argument("asset_id", default="00")
+def search_for_asset(asset_id):
+    asset = get_asset(asset_id)
+    scan = add_scan_event(asset_id, session["id"], asset.room_id, datetime.now(), asset.status, asset.notes)
+    data = asset.get_json()
+    if asset_id == '00':
+        print({"Error"})
+    else:
+        print({"data":data})
+        
+    
+    
 
 
 app.cli.add_command(asset_cli) # add the group to the cli
