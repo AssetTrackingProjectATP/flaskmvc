@@ -86,6 +86,15 @@ def list_user_command(format):
         print(get_all_assets_by_room_id())
     else:
         print(get_all_assets_by_room_json())
+        
+
+@asset_cli.command("list", help="Lists users in the database")
+@click.argument("format", default="string")
+def list_user_command(format):
+    if format == 'string':
+        print(get_all_assets())
+    else:
+        print(get_all_assets_json())
 
 
 
