@@ -99,7 +99,6 @@ def delete_asset(id):
 
 
 
-
 def update_asset_location(asset_id, new_location, user_id=None):
     asset = get_asset(asset_id)
     if not asset:
