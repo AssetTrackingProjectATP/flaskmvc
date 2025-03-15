@@ -124,6 +124,7 @@
             </button>
         </div>
         
+       <!-- Updated search container with better Enter key handling -->
         <div class="search-container mb-4" id="searchContainer" style="display: none;">
             <!-- Scanning indicator containers (initially hidden) -->
             <div id="scanIndicator" class="alert alert-info mb-3" style="display: none;">
@@ -141,16 +142,18 @@
                 Point the camera at QR codes to scan
             </div>
             
-            <!-- Manual search input with button -->
-            <div class="manual-search-group" id="manualSearchGroup">
-                <input type="text" class="form-control" id="searchInput" placeholder="Enter asset ID or serial number...">
-                <button class="btn btn-outline-secondary" id="manualSearchButton" type="button">
-                    <i class="bi bi-search"></i> Search
-                </button>
-            </div>
+            <!-- Manual search input with button - submit event handled in JavaScript -->
+            <form id="manualSearchForm" onsubmit="event.preventDefault(); manualSearchAsset(); return false;">
+                <div class="manual-search-group" id="manualSearchGroup">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Enter asset ID or serial number...">
+                    <button class="btn btn-outline-secondary" id="manualSearchButton" type="button">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </form>
             
-            <!-- Main Room Audit Toggle Button -->
-            <button class="btn btn-success w-100" id="toggleRoomAudit">Start Room Audit</button>
+            <!-- Main Room Audit Toggle Button - explicitly not in a form -->
+            <button class="btn btn-success w-100 mt-3" id="toggleRoomAudit" type="button">Start Room Audit</button>
         </div>
         
         <div id="assetList" style="display: none;">
