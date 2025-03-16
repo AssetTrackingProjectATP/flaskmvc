@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iGOVTT - Discrepancy Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <style>
+        .discrepancy-item {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+            padding: 15px 20px;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .discrepancy-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+        
+        .missing-icon {
+            background-color: #dc3545;
+        }
+        
+        .misplaced-icon {
+            background-color: #ffc107;
+        }
+        
+        .lost-icon {
+            background-color: #dc3545;
+        }
+        
+        .discrepancy-content {
+            flex-grow: 1;
+        }
+        
+        .discrepancy-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .discrepancy-details {
+            color: #666;
+            margin-bottom: 0;
+        }
+        
+        .action-button {
+            margin-left: 10px;
+        }
+        
+        .filter-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .filter-badge {
+            background-color: #f0f7ff;
+            color: var(--primary-blue);
+            padding: 8px 15px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+            text-decoration: none;
+        }
+        
+        .filter-badge.active {
+            background-color: var(--primary-blue);
+            color: white;
+        }
+        
+        .count-badge {
+            background-color: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 768px) {
+            .discrepancy-item {
+                flex-direction: column;
+                align-items: flex-start;
+                padding-bottom: 60px;
+            }
+            
+            .discrepancy-icon {
+                margin-bottom: 10px;
+            }
+            
+            .action-button {
+                position: absolute;
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="profile-section">
+            <img src="{{ url_for('static', filename='images/profile_icon.png') }}" alt="Profile" class="profile-image">
+            <h5 class="mb-1">{{current_user.username}}</h5>
+            <small class="text-muted">{{current_user.email}}</small>
+        </div>
+
+        <nav>
+            <a href="/inventory" class="nav-item">Inventory</a>
+            <a href="/audit" class="nav-item">Area Audit</a>
+            <a href="/discrepancy-report" class="nav-item active">Discrepancy Report</a>
+        </nav>
+        
+        <div class="sidebar-bottom">
+            <a href="/settings" class="nav-item">Settings</a>
+            <a href="/logout" class="nav-item text-danger">Log Out</a>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <h2 class="mb-4">Discrepancy Report</h2>
+        
+        <div class="filter-section">
+            <a href="#" class="filter-badge active" id="filter-all" onclick="filterDiscrepancies('all'); return false;">
+                All <span class="count-badge">4</span>
+            </a>
+            <a href="#" class="filter-badge" id="filter-missing" onclick="filterDiscrepancies('missing'); return false;">
+                Missing <span class="count-badge">1</span>
+            </a>
+            <a href="#" class="filter-badge" id="filter-misplaced" onclick="filterDiscrepancies('misplaced'); return false;">
+                Misplaced <span class="count-badge">2</span>
+            </a>
+            <a href="#" class="filter-badge" id="filter-lost" onclick="filterDiscrepancies('lost'); return false;">
+                Lost <span class="count-badge">1</span>
+            </a>
+        </div>
+        
+        <div id="discrepancy-list">
+            <!-- Missing asset example -->
+            <div class="discrepancy-item missing-item" data-status="missing">
+                <div class="discrepancy-icon missing-icon">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                </div>
+                <div class="discrepancy-content">
+                    <h5 class="discrepancy-title">Laptop - 673281117</h5>
+                    <p class="discrepancy-details">Expected in Building A Fl-Room 202, not found</p>
+                </div>
+                <a href="#" class="btn btn-primary action-button">Asset Record</a>
+            </div>
+            
+            <!-- Misplaced assets examples -->
+            <div class="discrepancy-item misplaced-item" data-status="misplaced">
+                <div class="discrepancy-icon misplaced-icon">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <div class="discrepancy-content">
+                    <h5 class="discrepancy-title">Office Table - 777888123</h5>
+                    <p class="discrepancy-details">Expected in Building A Fl-Room 202, found in Fl-Room 100</p>
+                </div>
+                <a href="#" class="btn btn-primary action-button">Asset Record</a>
+            </div>
+            
+            <div class="discrepancy-item misplaced-item" data-status="misplaced">
+                <div class="discrepancy-icon misplaced-icon">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <div class="discrepancy-content">
+                    <h5 class="discrepancy-title">Monitor - 443567890</h5>
+                    <p class="discrepancy-details">Expected in Building B Fl-Room 301, found in Building A Fl-Room 204</p>
+                </div>
+                <a href="#" class="btn btn-primary action-button">Asset Record</a>
+            </div>
+            
+            <!-- Lost asset example -->
+            <div class="discrepancy-item lost-item" data-status="lost">
+                <div class="discrepancy-icon missing-icon">
+                    <i class="bi bi-x-circle-fill"></i>
+                </div>
+                <div class="discrepancy-content">
+                    <h5 class="discrepancy-title">Printer - 998877665</h5>
+                    <p class="discrepancy-details">Marked as lost on 03/05/2025. Last seen in Building A Fl-Room 110.</p>
+                </div>
+                <a href="#" class="btn btn-primary action-button">Asset Record</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/discrepancy.js') }}"></script>
+</body>
+</html>

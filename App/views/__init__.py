@@ -6,7 +6,9 @@ from .auth import auth_views
 from .audit import audit_views
 from .admin import setup_admin
 from .inventory import inventory_views
+from .discrepancy import discrepancy_views
 
 
-views = [user_views, index_views, auth_views, inventory_views, audit_views] 
+
+views = [user_views, index_views, auth_views, inventory_views, audit_views, discrepancy_views] 
 # blueprints must be added to this list
