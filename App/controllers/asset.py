@@ -145,3 +145,17 @@ def mark_assets_missing(asset_ids, user_id=None):
         print(f"Error marking assets as missing: {e}")
         db.session.rollback()
         return False
+
+def get_assets_by_status(status):
+    assets = Asset.query.filter_by(status=status).all()
+    if not assets:
+        return []
+    assets = [asset.get_json() for asset in assets]
+    return assets
+
+def get_discrepant_assets():
+    assets = Asset.query.filter(Asset.status.in_(["Missing", "Misplaced"])).all()
+    if not assets:
+        return []
+    assets = [asset.get_json() for asset in assets]
+    return assets      

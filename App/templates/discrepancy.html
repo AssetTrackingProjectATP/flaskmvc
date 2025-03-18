@@ -40,10 +40,6 @@
             background-color: #ffc107;
         }
         
-        .lost-icon {
-            background-color: #dc3545;
-        }
-        
         .discrepancy-content {
             flex-grow: 1;
         }
@@ -139,65 +135,23 @@
         
         <div class="filter-section">
             <a href="#" class="filter-badge Good" id="filter-all" onclick="filterDiscrepancies('all'); return false;">
-                All <span class="count-badge">4</span>
+                All <span class="count-badge">0</span>
             </a>
             <a href="#" class="filter-badge" id="filter-missing" onclick="filterDiscrepancies('missing'); return false;">
-                Missing <span class="count-badge">1</span>
+                Missing <span class="count-badge">0</span>
             </a>
             <a href="#" class="filter-badge" id="filter-misplaced" onclick="filterDiscrepancies('misplaced'); return false;">
-                Misplaced <span class="count-badge">2</span>
-            </a>
-            <a href="#" class="filter-badge" id="filter-lost" onclick="filterDiscrepancies('lost'); return false;">
-                Lost <span class="count-badge">1</span>
+                Misplaced <span class="count-badge">0</span>
             </a>
         </div>
         
         <div id="discrepancy-list">
-            <!-- Missing asset example -->
-            <div class="discrepancy-item missing-item" data-status="missing">
-                <div class="discrepancy-icon missing-icon">
-                    <i class="bi bi-exclamation-circle-fill"></i>
+            <!-- Discrepancy items will be loaded here dynamically -->
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
                 </div>
-                <div class="discrepancy-content">
-                    <h5 class="discrepancy-title">Laptop - 673281117</h5>
-                    <p class="discrepancy-details">Expected in Building A Fl-Room 202, not found</p>
-                </div>
-                <a href="#" class="btn btn-primary action-button">Asset Record</a>
-            </div>
-            
-            <!-- Misplaced assets examples -->
-            <div class="discrepancy-item misplaced-item" data-status="misplaced">
-                <div class="discrepancy-icon misplaced-icon">
-                    <i class="bi bi-geo-alt-fill"></i>
-                </div>
-                <div class="discrepancy-content">
-                    <h5 class="discrepancy-title">Office Table - 777888123</h5>
-                    <p class="discrepancy-details">Expected in Building A Fl-Room 202, found in Fl-Room 100</p>
-                </div>
-                <a href="#" class="btn btn-primary action-button">Asset Record</a>
-            </div>
-            
-            <div class="discrepancy-item misplaced-item" data-status="misplaced">
-                <div class="discrepancy-icon misplaced-icon">
-                    <i class="bi bi-geo-alt-fill"></i>
-                </div>
-                <div class="discrepancy-content">
-                    <h5 class="discrepancy-title">Monitor - 443567890</h5>
-                    <p class="discrepancy-details">Expected in Building B Fl-Room 301, found in Building A Fl-Room 204</p>
-                </div>
-                <a href="#" class="btn btn-primary action-button">Asset Record</a>
-            </div>
-            
-            <!-- Lost asset example -->
-            <div class="discrepancy-item lost-item" data-status="lost">
-                <div class="discrepancy-icon missing-icon">
-                    <i class="bi bi-x-circle-fill"></i>
-                </div>
-                <div class="discrepancy-content">
-                    <h5 class="discrepancy-title">Printer - 998877665</h5>
-                    <p class="discrepancy-details">Marked as lost on 03/05/2025. Last seen in Building A Fl-Room 110.</p>
-                </div>
-                <a href="#" class="btn btn-primary action-button">Asset Record</a>
+                <p class="mt-3">Loading discrepancies...</p>
             </div>
         </div>
     </div>
