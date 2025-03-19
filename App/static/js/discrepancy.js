@@ -65,6 +65,29 @@ function renderDiscrepancies(discrepancies) {
         const discrepancyItem = document.createElement('div');
         discrepancyItem.className = `discrepancy-item ${status.toLowerCase()}-item`;
         discrepancyItem.dataset.status = status.toLowerCase();
+        discrepancyItem.dataset.assetId = assetId;
+        
+        // Prepare actions based on status
+        let actionButtons = `
+            <a href="/asset/${assetId}" class="btn btn-primary action-button">Asset Record</a>
+        `;
+        
+        // Add additional action buttons for Missing assets
+        if (status === 'Missing') {
+            actionButtons = `
+                <div class="btn-group">
+                    <button class="btn btn-success mark-found-btn" data-asset-id="${assetId}" data-asset-name="${description}">
+                        <i class="bi bi-check-circle"></i> Mark as Found
+                    </button>
+                    <button class="btn btn-danger mark-lost-btn" data-asset-id="${assetId}" data-asset-name="${description}">
+                        <i class="bi bi-x-circle"></i> Mark as Lost
+                    </button>
+                    <a href="/asset/${assetId}" class="btn btn-primary">
+                        <i class="bi bi-info-circle"></i> Asset Record
+                    </a>
+                </div>
+            `;
+        }
         
         discrepancyItem.innerHTML = `
             <div class="discrepancy-icon ${status.toLowerCase()}-icon">
@@ -74,7 +97,9 @@ function renderDiscrepancies(discrepancies) {
                 <h5 class="discrepancy-title">${description} - ${assetId}</h5>
                 <p class="discrepancy-details">${detailsText}</p>
             </div>
-            <a href="/asset/${assetId}" class="btn btn-primary action-button">Asset Record</a>
+            <div class="action-buttons">
+                ${actionButtons}
+            </div>
         `;
         
         discrepancyList.appendChild(discrepancyItem);
@@ -123,20 +148,151 @@ function updateCounters() {
     document.querySelector('#filter-misplaced .count-badge').textContent = misplacedCount;
 }
 
+// Function to handle marking an asset as lost
+async function markAssetAsLost(assetId, assetName) {
+    try {
+        const response = await fetch(`/api/asset/${assetId}/mark-lost`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showStatusMessage(
+                'Asset Marked as Lost', 
+                `${assetName} (${assetId}) has been marked as Lost. This asset will be moved to the Lost Assets report.`,
+                'success'
+            );
+            
+            // Reload discrepancies after action
+            loadDiscrepancies();
+        } else {
+            showStatusMessage(
+                'Error', 
+                result.message || 'Failed to mark asset as lost. Please try again.',
+                'danger'
+            );
+        }
+    } catch (error) {
+        console.error('Error marking asset as lost:', error);
+        showStatusMessage(
+            'Error', 
+            'An error occurred while trying to mark the asset as lost. Please try again.',
+            'danger'
+        );
+    }
+}
+
+// Function to handle marking an asset as found
+async function markAssetAsFound(assetId, assetName, returnToRoom) {
+    try {
+        const response = await fetch(`/api/asset/${assetId}/mark-found`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                return_to_assigned_room: returnToRoom
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showStatusMessage(
+                'Asset Marked as Found', 
+                `${assetName} (${assetId}) has been marked as Found${returnToRoom ? ' and returned to its assigned room' : ''}.`,
+                'success'
+            );
+            
+            // Reload discrepancies after action
+            loadDiscrepancies();
+        } else {
+            showStatusMessage(
+                'Error', 
+                result.message || 'Failed to mark asset as found. Please try again.',
+                'danger'
+            );
+        }
+    } catch (error) {
+        console.error('Error marking asset as found:', error);
+        showStatusMessage(
+            'Error', 
+            'An error occurred while trying to mark the asset as found. Please try again.',
+            'danger'
+        );
+    }
+}
+
+// Function to show status messages in modal
+function showStatusMessage(title, message, type) {
+    const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
+    const statusTitle = document.getElementById('statusTitle');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    statusTitle.textContent = title;
+    statusMessage.innerHTML = message;
+    
+    // Set the appropriate class based on the message type
+    statusMessage.className = '';
+    if (type === 'success') {
+        statusMessage.classList.add('text-success');
+    } else if (type === 'danger') {
+        statusMessage.classList.add('text-danger');
+    } else if (type === 'warning') {
+        statusMessage.classList.add('text-warning');
+    }
+    
+    statusModal.show();
+}
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
     // Load discrepancies when page loads
     loadDiscrepancies();
     
+    // Set up the Found modal
+    const foundModal = new bootstrap.Modal(document.getElementById('foundModal'));
+    let currentAssetId = null;
+    let currentAssetName = null;
+    
     // Event listeners for action buttons
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.action-button')) {
-            e.preventDefault();
-            const button = e.target.closest('.action-button');
-            const url = button.getAttribute('href');
-            if (url) {
-                window.location.href = url;
+        // Mark as Lost button
+        if (e.target.closest('.mark-lost-btn')) {
+            const button = e.target.closest('.mark-lost-btn');
+            const assetId = button.dataset.assetId;
+            const assetName = button.dataset.assetName;
+            
+            if (confirm(`Are you sure you want to mark ${assetName} (${assetId}) as Lost? This action cannot be undone.`)) {
+                markAssetAsLost(assetId, assetName);
             }
+        }
+        
+        // Mark as Found button
+        if (e.target.closest('.mark-found-btn')) {
+            const button = e.target.closest('.mark-found-btn');
+            currentAssetId = button.dataset.assetId;
+            currentAssetName = button.dataset.assetName;
+            
+            // Update modal with asset info
+            document.querySelector('#foundModal .asset-info').textContent = 
+                `Asset: ${currentAssetName} (${currentAssetId})`;
+            
+            // Show the modal
+            foundModal.show();
+        }
+    });
+    
+    // Confirm button in Found modal
+    document.getElementById('confirmFoundBtn').addEventListener('click', function() {
+        if (currentAssetId) {
+            const returnToRoom = document.getElementById('returnToRoom').checked;
+            markAssetAsFound(currentAssetId, currentAssetName, returnToRoom);
+            foundModal.hide();
         }
     });
 });

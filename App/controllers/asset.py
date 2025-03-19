@@ -159,3 +159,88 @@ def get_discrepant_assets():
         return []
     assets = [asset.get_json() for asset in assets]
     return assets      
+
+def mark_asset_lost(asset_id, user_id=None):
+    asset = get_asset(asset_id)
+    if not asset:
+        return None
+    
+    # Store old status for changelog
+    old_status = asset.status
+    
+    # Set status to Lost
+    asset.status = "Lost"
+    asset.last_update = datetime.now()
+    
+    try:
+        # Use the current_user's ID if user_id not provided
+        if not user_id and current_user:
+            user_id = current_user.id
+            
+        # If we still don't have a user_id, use a default
+        if not user_id:
+            user_id = "SYSTEM"
+        
+        # Create a scan event to record this update
+        notes = f"Asset marked as Lost. Previous status: {old_status}."
+        
+        add_scan_event(
+            asset_id=asset_id,
+            user_id=user_id,
+            room_id=asset.room_id,
+            status="Lost",
+            notes=notes
+        )
+        
+        db.session.commit()
+        return asset
+    except Exception as e:
+        print(f"Error marking asset as lost: {e}")
+        db.session.rollback()
+        return None
+
+def mark_asset_found(asset_id, user_id=None, return_to_room=True):
+    asset = get_asset(asset_id)
+    if not asset:
+        return None
+    
+    # Store old status for changelog
+    old_status = asset.status
+    
+    # If returning to assigned room, update last_located to match room_id
+    if return_to_room:
+        asset.last_located = asset.room_id
+    
+    # Set status to Good
+    asset.status = "Good"
+    asset.last_update = datetime.now()
+    
+    try:
+        # Use the current_user's ID if user_id not provided
+        if not user_id and current_user:
+            user_id = current_user.id
+            
+        # If we still don't have a user_id, use a default
+        if not user_id:
+            user_id = "SYSTEM"
+        
+        # Create a scan event to record this update
+        if return_to_room:
+            notes = f"Asset marked as Found and returned to its assigned room. Previous status: {old_status}."
+        else:
+            notes = f"Asset marked as Found. Previous status: {old_status}."
+        
+        add_scan_event(
+            asset_id=asset_id,
+            user_id=user_id,
+            room_id=asset.last_located,
+            status="Good",
+            notes=notes
+        )
+        
+        db.session.commit()
+        return asset
+    except Exception as e:
+        print(f"Error marking asset as found: {e}")
+        db.session.rollback()
+        return None
