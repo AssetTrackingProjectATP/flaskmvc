@@ -30,6 +30,7 @@ def init():
 
     #Sample data for assets
     
+    #Initialize database with csv
 
 '''
 User Commands
