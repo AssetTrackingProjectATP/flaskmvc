@@ -79,7 +79,7 @@ def update_asset_location(asset_id, new_location, user_id=None):
     
     # Set status based on whether the asset is in its assigned room
     if asset.room_id == new_location:
-        asset.status = "Found"
+        asset.status = "Good"
     else:
         asset.status = "Misplaced"
     
@@ -210,6 +210,8 @@ def mark_asset_found(asset_id, user_id=None, return_to_room=True):
     # If returning to assigned room, update last_located to match room_id
     if return_to_room:
         asset.last_located = asset.room_id
+    else:
+        asset.room_id = asset.last_located
     
     # Set status to Good
     asset.status = "Good"
