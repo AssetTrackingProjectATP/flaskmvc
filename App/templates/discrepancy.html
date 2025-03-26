@@ -13,15 +13,15 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             margin-bottom: 15px;
-            padding: 15px 20px;
+            padding: 20px;
             position: relative;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
         }
         
         .discrepancy-icon {
-            width: 35px;
-            height: 35px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -29,6 +29,7 @@
             color: white;
             font-size: 18px;
             margin-right: 20px;
+            margin-top: 5px;
             flex-shrink: 0;
         }
         
@@ -42,11 +43,13 @@
         
         .discrepancy-content {
             flex-grow: 1;
+            margin-right: 20px;
         }
         
         .discrepancy-title {
             font-weight: 600;
             margin-bottom: 5px;
+            font-size: 1.1rem;
         }
         
         .discrepancy-details {
@@ -55,25 +58,31 @@
         }
         
         .action-buttons {
-            margin-left: 10px;
+            flex-shrink: 0;
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            min-width: 220px;
+            gap: 8px;
         }
         
         .action-button {
-            margin-left: 5px;
-        }
-        
-        .btn-group {
+            text-align: left;
             display: flex;
-            flex-wrap: wrap;
+            align-items: center;
             gap: 5px;
+            width: 100%;
         }
         
-        @media (max-width: 992px) {
-            .btn-group {
-                flex-direction: column;
-            }
+        .action-button i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
         }
         
         .filter-section {
@@ -81,6 +90,7 @@
             align-items: center;
             gap: 15px;
             margin-bottom: 25px;
+            flex-wrap: wrap;
         }
         
         .filter-badge {
@@ -109,28 +119,38 @@
             font-size: 0.8rem;
         }
         
-        @media (max-width: 768px) {
+        /* Responsive styles */
+        @media (max-width: 992px) {
             .discrepancy-item {
-                flex-direction: column;
-                align-items: flex-start;
-                padding-bottom: 80px;
-            }
-            
-            .discrepancy-icon {
-                margin-bottom: 10px;
+                flex-wrap: wrap;
             }
             
             .action-buttons {
-                position: absolute;
-                bottom: 15px;
-                right: 15px;
-                left: 15px;
-                margin-left: 0;
+                width: 100%;
+                margin-top: 15px;
+                flex-direction: row;
+                flex-wrap: wrap;
             }
             
-            .btn-group {
+            .action-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            
+            .action-button {
+                width: auto;
+                flex: 1;
+                min-width: 200px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .discrepancy-item {
+                padding: 15px;
+            }
+            
+            .action-button {
                 width: 100%;
-                justify-content: center;
             }
         }
     </style>
@@ -181,37 +201,32 @@
         </div>
     </div>
 
-    <!-- Modal for Mark as Found confirmation -->
-    <div class="modal fade" id="foundModal" tabindex="-1" aria-labelledby="foundModalLabel" aria-hidden="true">
+    <!-- Modal for Relocation -->
+    <div class="modal fade" id="relocationModal" tabindex="-1" aria-labelledby="relocationModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="foundModalLabel">Mark Asset as Found</h5>
+                    <h5 class="modal-title" id="relocationModalLabel">Asset Found & Relocated</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p>You're marking this asset as found. What would you like to do?</p>
-                    <p class="asset-info mb-3"></p>
+                    <p>Select the new location for this asset:</p>
+                    <p class="asset-info mb-3 fw-bold"></p>
                     
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="radio" name="foundOption" id="returnToRoom" checked>
-                        <label class="form-check-label" for="returnToRoom">
-                            <strong>Return to assigned room</strong> (recommended)
-                            <small class="d-block text-muted">The asset will be marked as Found and its location will be updated to its assigned room.</small>
-                        </label>
-                    </div>
-                    
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="foundOption" id="markFoundOnly">
-                        <label class="form-check-label" for="markFoundOnly">
-                            <strong>Mark as Found only</strong>
-                            <small class="d-block text-muted">The asset will be marked as Found but will need to be properly relocated in a separate step.</small>
-                        </label>
+                    <div class="form-group mb-3">
+                        <label for="roomSelect" class="form-label">New Location:</label>
+                        <select class="form-select" id="roomSelect" required>
+                            <option value="">Select a room...</option>
+                            <!-- Rooms will be populated dynamically -->
+                        </select>
+                        <div class="form-text">
+                            The asset will be marked as Found and its assigned location will be updated to the selected room.
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-success" id="confirmFoundBtn">Confirm</button>
+                    <button type="button" class="btn btn-primary" id="confirmRelocationBtn">Confirm Relocation</button>
                 </div>
             </div>
         </div>

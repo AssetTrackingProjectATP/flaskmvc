@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iGOVTT - Asset Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <style>
+        .detail-card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .detail-title i {
+            font-size: 1.2rem;
+        }
+        
+        .detail-field {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 15px;
+        }
+        
+        .detail-field:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .field-label {
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .field-value {
+            font-size: 1.1rem;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-badge.good {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.missing {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-badge.misplaced {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-badge.lost {
+            background-color: #d6d8db;
+            color: #383d41;
+        }
+        
+        .scan-item {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .scan-item:last-child {
+            border-bottom: none;
+        }
+        
+        .scan-time {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .scan-details {
+            margin-top: 5px;
+        }
+        
+        .scan-notes {
+            margin-top: 5px;
+            font-style: italic;
+            color: #666;
+        }
+        
+        .status-history-badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="profile-section">
+            <img src="{{ url_for('static', filename='images/profile_icon.png') }}" alt="Profile" class="profile-image">
+            <h5 class="mb-1">{{current_user.username}}</h5>
+            <small class="text-muted">{{current_user.email}}</small>
+        </div>
+
+        <nav>
+            <a href="/inventory" class="nav-item">Inventory</a>
+            <a href="/audit" class="nav-item">Area Audit</a>
+            <a href="/discrepancy-report" class="nav-item">Discrepancy Report</a>
+        </nav>
+        
+        <div class="sidebar-bottom">
+            <a href="/settings" class="nav-item">Settings</a>
+            <a href="/logout" class="nav-item text-danger">Log Out</a>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Asset Report</h2>
+            <a href="{{ request.referrer or url_for('inventory_views.inventory_page') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+        
+        <div class="row">
+            <!-- Basic Information Card -->
+            <div class="col-md-6 mb-4">
+                <div class="detail-card h-100">
+                    <div class="detail-title">
+                        <i class="bi bi-info-circle"></i> Basic Information
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Asset ID</div>
+                        <div class="field-value">{{ asset.id }}</div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Description</div>
+                        <div class="field-value">{{ asset.description }}</div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Brand / Model</div>
+                        <div class="field-value">{{ asset.brand }} {{ asset.model }}</div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Serial Number</div>
+                        <div class="field-value">{{ asset.serial_number }}</div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Status</div>
+                        <div class="field-value">
+                            <span class="status-badge {{ asset.status.lower() }}">{{ asset.status }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Last Updated</div>
+                        <div class="field-value">{{ asset.last_update.strftime('%Y-%m-%d %H:%M') if asset.last_update else 'Unknown' }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Location & Assignment Card -->
+            <div class="col-md-6 mb-4">
+                <div class="detail-card h-100">
+                    <div class="detail-title">
+                        <i class="bi bi-geo-alt"></i> Location & Assignment
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Assigned Room</div>
+                        <div class="field-value">{{ room_name }}</div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Current Location</div>
+                        <div class="field-value">
+                            {{ last_location_name }}
+                            {% if asset.room_id != asset.last_located %}
+                            <span class="badge bg-warning text-dark">Misplaced</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Assigned To</div>
+                        <div class="field-value">{{ assignee_name }}</div>
+                    </div>
+                    
+                    <div class="detail-field">
+                        <div class="field-label">Notes</div>
+                        <div class="field-value">{{ asset.notes or 'No notes available' }}</div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        {% if asset.status in ['Missing', 'Misplaced'] %}
+                        <button class="btn btn-success mark-found-btn" data-asset-id="{{ asset.id }}" data-asset-name="{{ asset.description }}">
+                            <i class="bi bi-check-circle"></i> Mark as Found
+                        </button>
+                        
+                        <button class="btn btn-info found-relocate-btn" data-asset-id="{{ asset.id }}" data-asset-name="{{ asset.description }}">
+                            <i class="bi bi-geo-alt"></i> Found & Relocated
+                        </button>
+                        
+                        <button class="btn btn-danger mark-lost-btn" data-asset-id="{{ asset.id }}" data-asset-name="{{ asset.description }}">
+                            <i class="bi bi-x-circle"></i> Mark as Lost
+                        </button>
+                        {% elif asset.status == 'Lost' %}
+                        <button class="btn btn-success mark-found-btn" data-asset-id="{{ asset.id }}" data-asset-name="{{ asset.description }}">
+                            <i class="bi bi-check-circle"></i> Found - Return to Inventory
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scan History Card -->
+        <div class="detail-card mb-4">
+            <div class="detail-title">
+                <i class="bi bi-clock-history"></i> Scan History
+            </div>
+            
+            <div class="scan-history">
+                {% if scan_events %}
+                    {% for event in scan_events %}
+                    <div class="scan-item">
+                        <div class="scan-time">{{ event.scan_time.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="scan-details">
+                            <strong>Room:</strong> {{ event.room_name }}
+                            <span class="badge bg-secondary status-history-badge">{{ event.status }}</span>
+                        </div>
+                        {% if event.notes %}
+                        <div class="scan-notes">{{ event.notes }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="text-center py-3">
+                    <p class="text-muted">No scan history available</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Relocation -->
+    <div class="modal fade" id="relocationModal" tabindex="-1" aria-labelledby="relocationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="relocationModalLabel">Asset Found & Relocated</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Select the new location for this asset:</p>
+                    <p class="asset-info mb-3 fw-bold"></p>
+                    
+                    <div class="form-group mb-3">
+                        <label for="roomSelect" class="form-label">New Location:</label>
+                        <select class="form-select" id="roomSelect" required>
+                            <option value="">Select a room...</option>
+                            <!-- Rooms will be populated dynamically -->
+                        </select>
+                        <div class="form-text">
+                            The asset will be marked as Found and its assigned location will be updated to the selected room.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmRelocationBtn">Confirm Relocation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for displaying status messages -->
+    <div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="statusTitle">Status Update</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="statusMessage">
+                    <!-- Status message will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // JavaScript for the Asset Report Page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up the Relocation modal
+            const relocationModal = new bootstrap.Modal(document.getElementById('relocationModal'));
+            let currentAssetId = null;
+            let currentAssetName = null;
+            
+            // Load all rooms for relocation dropdown
+            async function loadRooms() {
+                try {
+                    const response = await fetch('/api/rooms/all');
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch rooms');
+                    }
+                    
+                    const rooms = await response.json();
+                    const roomSelect = document.getElementById('roomSelect');
+                    roomSelect.innerHTML = '<option value="">Select a room...</option>';
+                    
+                    rooms.forEach(room => {
+                        const option = document.createElement('option');
+                        option.value = room.room_id;
+                        option.textContent = room.room_name;
+                        roomSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading rooms:', error);
+                    showStatusMessage(
+                        'Error', 
+                        'Failed to load rooms for relocation. Some features may not work properly.',
+                        'warning'
+                    );
+                }
+            }
+            
+            loadRooms();
+            
+            // Event listeners for action buttons
+            document.addEventListener('click', function(e) {
+                // Mark as Lost button
+                if (e.target.closest('.mark-lost-btn')) {
+                    const button = e.target.closest('.mark-lost-btn');
+                    const assetId = button.dataset.assetId;
+                    const assetName = button.dataset.assetName;
+                    
+                    if (confirm(`Are you sure you want to mark ${assetName} (${assetId}) as Lost? This action cannot be undone.`)) {
+                        markAssetAsLost(assetId, assetName);
+                    }
+                }
+                
+                // Mark as Found button
+                if (e.target.closest('.mark-found-btn')) {
+                    const button = e.target.closest('.mark-found-btn');
+                    const assetId = button.dataset.assetId;
+                    const assetName = button.dataset.assetName;
+                    
+                    if (confirm(`Mark ${assetName} (${assetId}) as Found and return to its assigned room?`)) {
+                        markAssetAsFound(assetId, assetName);
+                    }
+                }
+                
+                // Found and Relocated button
+                if (e.target.closest('.found-relocate-btn')) {
+                    const button = e.target.closest('.found-relocate-btn');
+                    currentAssetId = button.dataset.assetId;
+                    currentAssetName = button.dataset.assetName;
+                    
+                    // Update modal with asset info
+                    document.querySelector('#relocationModal .asset-info').textContent = 
+                        `Asset: ${currentAssetName} (${currentAssetId})`;
+                    
+                    // Show the modal
+                    relocationModal.show();
+                }
+            });
+            
+            // Confirm button in Relocation modal
+            document.getElementById('confirmRelocationBtn').addEventListener('click', function() {
+                const roomSelect = document.getElementById('roomSelect');
+                const selectedRoomId = roomSelect.value;
+                
+                if (!selectedRoomId) {
+                    alert('Please select a room for relocation');
+                    return;
+                }
+                
+                if (currentAssetId) {
+                    markAssetAsFoundAndRelocated(currentAssetId, currentAssetName, selectedRoomId);
+                    relocationModal.hide();
+                }
+            });
+            
+            // Function to handle marking an asset as lost
+            async function markAssetAsLost(assetId, assetName) {
+                try {
+                    const response = await fetch(`/api/asset/${assetId}/mark-lost`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        showStatusMessage(
+                            'Asset Marked as Lost', 
+                            `${assetName} (${assetId}) has been marked as Lost. This asset will be moved to the Lost Assets report.`,
+                            'success'
+                        );
+                        
+                        // Reload the page after short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showStatusMessage(
+                            'Error', 
+                            result.message || 'Failed to mark asset as lost. Please try again.',
+                            'danger'
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error marking asset as lost:', error);
+                    showStatusMessage(
+                        'Error', 
+                        'An error occurred while trying to mark the asset as lost. Please try again.',
+                        'danger'
+                    );
+                }
+            }
+            
+            // Function to handle marking an asset as found
+            async function markAssetAsFound(assetId, assetName) {
+                try {
+                    const response = await fetch(`/api/asset/${assetId}/mark-found`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        showStatusMessage(
+                            'Asset Marked as Found', 
+                            `${assetName} (${assetId}) has been marked as Found and returned to its assigned room.`,
+                            'success'
+                        );
+                        
+                        // Reload the page after short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showStatusMessage(
+                            'Error', 
+                            result.message || 'Failed to mark asset as found. Please try again.',
+                            'danger'
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error marking asset as found:', error);
+                    showStatusMessage(
+                        'Error', 
+                        'An error occurred while trying to mark the asset as found. Please try again.',
+                        'danger'
+                    );
+                }
+            }
+            
+            // Function to handle marking an asset as found and relocated
+            async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
+                try {
+                    const response = await fetch(`/api/asset/${assetId}/relocate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            roomId: newRoomId
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        showStatusMessage(
+                            'Asset Relocated', 
+                            `${assetName} (${assetId}) has been marked as Found and relocated to the new room.`,
+                            'success'
+                        );
+                        
+                        // Reload the page after short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showStatusMessage(
+                            'Error', 
+                            result.message || 'Failed to relocate asset. Please try again.',
+                            'danger'
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error relocating asset:', error);
+                    showStatusMessage(
+                        'Error', 
+                        'An error occurred while trying to relocate the asset. Please try again.',
+                        'danger'
+                    );
+                }
+            }
+            
+            // Function to show status messages in modal
+            function showStatusMessage(title, message, type) {
+                const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
+                const statusTitle = document.getElementById('statusTitle');
+                const statusMessage = document.getElementById('statusMessage');
+                
+                statusTitle.textContent = title;
+                statusMessage.innerHTML = message;
+                
+                // Set the appropriate class based on the message type
+                statusMessage.className = '';
+                if (type === 'success') {
+                    statusMessage.classList.add('text-success');
+                } else if (type === 'danger') {
+                    statusMessage.classList.add('text-danger');
+                } else if (type === 'warning') {
+                    statusMessage.classList.add('text-warning');
+                }
+                
+                statusModal.show();
+            }
+        });
+    </script>
+</body>
+</html>

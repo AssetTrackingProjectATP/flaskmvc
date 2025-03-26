@@ -1,6 +1,7 @@
 // Global variables
 let allDiscrepancies = [];
 let currentFilter = 'all';
+let allRooms = []; // To store available rooms for relocation
 
 // Function to load discrepancies from API
 async function loadDiscrepancies() {
@@ -21,6 +22,25 @@ async function loadDiscrepancies() {
                 <strong>Error:</strong> Failed to load discrepancies. Please try again later.
             </div>
         `;
+    }
+}
+
+// Function to load all rooms (for relocation dropdown)
+async function loadRooms() {
+    try {
+        const response = await fetch('/api/rooms/all');
+        if (!response.ok) {
+            throw new Error('Failed to fetch rooms');
+        }
+        
+        allRooms = await response.json();
+    } catch (error) {
+        console.error('Error loading rooms:', error);
+        showStatusMessage(
+            'Error', 
+            'Failed to load rooms for relocation. Some features may not work properly.',
+            'warning'
+        );
     }
 }
 
@@ -67,27 +87,23 @@ function renderDiscrepancies(discrepancies) {
         discrepancyItem.dataset.status = status.toLowerCase();
         discrepancyItem.dataset.assetId = assetId;
         
-        // Prepare actions based on status
-        let actionButtons = `
-            <a href="/asset/${assetId}" class="btn btn-primary action-button">Asset Record</a>
+        // Create action buttons based on status
+        let actionButtonsHTML = `
+            <div class="btn-group action-group">
+                <a href="/asset/${assetId}" class="btn btn-primary action-button">
+                    <i class="bi bi-info-circle"></i> Asset Report
+                </a>
+                <button class="btn btn-success mark-found-btn" data-asset-id="${assetId}" data-asset-name="${description}">
+                    <i class="bi bi-check-circle"></i> Mark as Found
+                </button>
+                <button class="btn btn-info found-relocate-btn" data-asset-id="${assetId}" data-asset-name="${description}">
+                    <i class="bi bi-geo-alt"></i> Found & Relocated
+                </button>
+                <button class="btn btn-danger mark-lost-btn" data-asset-id="${assetId}" data-asset-name="${description}">
+                    <i class="bi bi-x-circle"></i> Mark as Lost
+                </button>
+            </div>
         `;
-        
-        // Add additional action buttons for Missing assets
-        if (status === 'Missing') {
-            actionButtons = `
-                <div class="btn-group">
-                    <button class="btn btn-success mark-found-btn" data-asset-id="${assetId}" data-asset-name="${description}">
-                        <i class="bi bi-check-circle"></i> Mark as Found
-                    </button>
-                    <button class="btn btn-danger mark-lost-btn" data-asset-id="${assetId}" data-asset-name="${description}">
-                        <i class="bi bi-x-circle"></i> Mark as Lost
-                    </button>
-                    <a href="/asset/${assetId}" class="btn btn-primary">
-                        <i class="bi bi-info-circle"></i> Asset Record
-                    </a>
-                </div>
-            `;
-        }
         
         discrepancyItem.innerHTML = `
             <div class="discrepancy-icon ${status.toLowerCase()}-icon">
@@ -98,7 +114,7 @@ function renderDiscrepancies(discrepancies) {
                 <p class="discrepancy-details">${detailsText}</p>
             </div>
             <div class="action-buttons">
-                ${actionButtons}
+                ${actionButtonsHTML}
             </div>
         `;
         
@@ -187,16 +203,13 @@ async function markAssetAsLost(assetId, assetName) {
 }
 
 // Function to handle marking an asset as found
-async function markAssetAsFound(assetId, assetName, returnToRoom) {
+async function markAssetAsFound(assetId, assetName) {
     try {
         const response = await fetch(`/api/asset/${assetId}/mark-found`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                return_to_assigned_room: returnToRoom
-            })
+            }
         });
         
         const result = await response.json();
@@ -204,7 +217,7 @@ async function markAssetAsFound(assetId, assetName, returnToRoom) {
         if (response.ok) {
             showStatusMessage(
                 'Asset Marked as Found', 
-                `${assetName} (${assetId}) has been marked as Found${returnToRoom ? ' and returned to its assigned room' : ''}.`,
+                `${assetName} (${assetId}) has been marked as Found and returned to its assigned room.`,
                 'success'
             );
             
@@ -222,6 +235,47 @@ async function markAssetAsFound(assetId, assetName, returnToRoom) {
         showStatusMessage(
             'Error', 
             'An error occurred while trying to mark the asset as found. Please try again.',
+            'danger'
+        );
+    }
+}
+
+// Function to handle marking an asset as found and relocated
+async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
+    try {
+        const response = await fetch(`/api/asset/${assetId}/relocate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                roomId: newRoomId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showStatusMessage(
+                'Asset Relocated', 
+                `${assetName} (${assetId}) has been marked as Found and relocated to the new room.`,
+                'success'
+            );
+            
+            // Reload discrepancies after action
+            loadDiscrepancies();
+        } else {
+            showStatusMessage(
+                'Error', 
+                result.message || 'Failed to relocate asset. Please try again.',
+                'danger'
+            );
+        }
+    } catch (error) {
+        console.error('Error relocating asset:', error);
+        showStatusMessage(
+            'Error', 
+            'An error occurred while trying to relocate the asset. Please try again.',
             'danger'
         );
     }
@@ -251,11 +305,12 @@ function showStatusMessage(title, message, type) {
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
-    // Load discrepancies when page loads
+    // Load discrepancies and rooms when page loads
     loadDiscrepancies();
+    loadRooms();
     
-    // Set up the Found modal
-    const foundModal = new bootstrap.Modal(document.getElementById('foundModal'));
+    // Set up the Relocation modal
+    const relocationModal = new bootstrap.Modal(document.getElementById('relocationModal'));
     let currentAssetId = null;
     let currentAssetName = null;
     
@@ -275,24 +330,52 @@ document.addEventListener('DOMContentLoaded', function() {
         // Mark as Found button
         if (e.target.closest('.mark-found-btn')) {
             const button = e.target.closest('.mark-found-btn');
+            const assetId = button.dataset.assetId;
+            const assetName = button.dataset.assetName;
+            
+            if (confirm(`Mark ${assetName} (${assetId}) as Found and return to its assigned room?`)) {
+                markAssetAsFound(assetId, assetName);
+            }
+        }
+        
+        // Found and Relocated button
+        if (e.target.closest('.found-relocate-btn')) {
+            const button = e.target.closest('.found-relocate-btn');
             currentAssetId = button.dataset.assetId;
             currentAssetName = button.dataset.assetName;
             
-            // Update modal with asset info
-            document.querySelector('#foundModal .asset-info').textContent = 
+            // Update modal with asset info and populate room dropdown
+            document.querySelector('#relocationModal .asset-info').textContent = 
                 `Asset: ${currentAssetName} (${currentAssetId})`;
             
+            const roomSelect = document.getElementById('roomSelect');
+            roomSelect.innerHTML = '<option value="">Select a room...</option>';
+            
+            allRooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.room_id;
+                option.textContent = room.room_name;
+                roomSelect.appendChild(option);
+            });
+            
             // Show the modal
-            foundModal.show();
+            relocationModal.show();
         }
     });
     
-    // Confirm button in Found modal
-    document.getElementById('confirmFoundBtn').addEventListener('click', function() {
+    // Confirm button in Relocation modal
+    document.getElementById('confirmRelocationBtn').addEventListener('click', function() {
+        const roomSelect = document.getElementById('roomSelect');
+        const selectedRoomId = roomSelect.value;
+        
+        if (!selectedRoomId) {
+            alert('Please select a room for relocation');
+            return;
+        }
+        
         if (currentAssetId) {
-            const returnToRoom = document.getElementById('returnToRoom').checked;
-            markAssetAsFound(currentAssetId, currentAssetName, returnToRoom);
-            foundModal.hide();
+            markAssetAsFoundAndRelocated(currentAssetId, currentAssetName, selectedRoomId);
+            relocationModal.hide();
         }
     });
 });
