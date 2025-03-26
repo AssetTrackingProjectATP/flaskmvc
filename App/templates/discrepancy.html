@@ -17,6 +17,7 @@
             position: relative;
             display: flex;
             align-items: flex-start;
+            align-items: center;
         }
         
         .discrepancy-icon {
@@ -122,7 +123,6 @@
         .action-buttons {
             display: flex;
             flex-shrink: 0;
-            min-width: 280px; /* Increased width */
             justify-content: flex-end;
         }
         
@@ -151,6 +151,8 @@
         /* Prevent text wrapping in buttons */
         .btn {
             white-space: nowrap;
+            max-height: 35px;
+            min-height: 35px;
         }
 
         .mark-found-btn {

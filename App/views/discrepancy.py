@@ -12,13 +12,13 @@ from App.controllers.room import get_room, get_all_rooms
 discrepancy_views = Blueprint('discrepancy_views', __name__, template_folder='../templates')
 
 @discrepancy_views.route('/discrepancy-report', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def discrepancy_report_page():
     # Default without loading data in template (will be loaded via API)
     return render_template('discrepancy.html')
 
 @discrepancy_views.route('/api/discrepancies', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def get_discrepancies():
     """API endpoint to get all discrepancy assets"""
     discrepancies = get_discrepant_assets()
@@ -46,7 +46,7 @@ def get_discrepancies():
     return jsonify(discrepancies)
 
 @discrepancy_views.route('/api/rooms/all', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def get_all_rooms_json():
     """API endpoint to get all rooms for relocation"""
     rooms = get_all_rooms()
@@ -56,21 +56,21 @@ def get_all_rooms_json():
     return jsonify(rooms_json)
 
 @discrepancy_views.route('/api/discrepancies/missing', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def get_missing():
     """API endpoint to get missing assets"""
     missing = get_assets_by_status("Missing")
     return jsonify(missing)
 
 @discrepancy_views.route('/api/discrepancies/misplaced', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def get_misplaced():
     """API endpoint to get misplaced assets"""
     misplaced = get_assets_by_status("Misplaced")
     return jsonify(misplaced)
 
 @discrepancy_views.route('/api/asset/<asset_id>/mark-lost', methods=['POST'])
-@jwt_required()
+# @jwt_required()
 def mark_asset_as_lost(asset_id):
     """API endpoint to mark an asset as lost"""
     asset = mark_asset_lost(asset_id, current_user.id)
@@ -85,7 +85,7 @@ def mark_asset_as_lost(asset_id):
     })
 
 @discrepancy_views.route('/api/asset/<asset_id>/mark-found', methods=['POST'])
-@jwt_required()
+# @jwt_required()
 def mark_asset_as_found(asset_id):
     """API endpoint to mark an asset as found"""
     # Return to room is always true for this endpoint
@@ -101,7 +101,7 @@ def mark_asset_as_found(asset_id):
     })
 
 @discrepancy_views.route('/api/asset/<asset_id>/relocate', methods=['POST'])
-@jwt_required()
+# @jwt_required()
 def relocate_asset(asset_id):
     """API endpoint to mark an asset as found and relocate it to a new room"""
     data = request.json

@@ -182,7 +182,7 @@ function displayExpectedAssets() {
         } else {
             statusIndicator.className = 'status-dot status-good';
             statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' Found'));
+            statusCell.appendChild(document.createTextNode(' Good'));
         }
         row.appendChild(statusCell);
         
@@ -273,10 +273,10 @@ function updateScannedAssetsTable() {
             statusIndicator.className = 'status-dot status-warning';
             statusCell.appendChild(statusIndicator);
             statusCell.appendChild(document.createTextNode(' Misplaced'));
-        } else if (asset.status === 'Found') {
+        } else if (asset.status === 'Good') {
             statusIndicator.className = 'status-dot status-good';
             statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' Found'));
+            statusCell.appendChild(document.createTextNode(' Good'));
         } else {
             statusIndicator.className = 'status-dot status-poor';
             statusCell.appendChild(statusIndicator);
@@ -751,7 +751,7 @@ async function updateAssetLocation(assetId, roomId) {
 
 function markAssetAsFound(asset) {
     asset.found = true;
-    asset.status = 'Found';
+    asset.status = 'Good';
     asset.last_located = currentRoom;
     asset.last_update = new Date().toISOString();
     asset.scanTime = new Date().toISOString();

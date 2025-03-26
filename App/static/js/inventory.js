@@ -42,7 +42,11 @@ function displayAssets(assets) {
             <td>${asset.model || 'N/A'}</td>
             <td>${asset.room_id || 'N/A'}</td>
             <td>
-                <span class="status-dot status-${asset.status === 'Active' ? 'good' : 'poor'}"></span>
+                <span class="status-dot status-${
+                    asset.status === 'Good' ? 'good' : 
+                    asset.status === 'Misplaced' ? 'misplaced' : 
+                    'poor'
+                }"></span>
                 ${asset.status || 'Unknown'}
             </td>
             <td>${asset.assignee_id || 'Unassigned'}</td>
