@@ -22,3 +22,12 @@ def add_asset_page():
     return render_template('message.html', 
                           title="Add Asset", 
                           message="Add Asset functionality coming soon!")
+    
+# @inventory_views.route('/add-csv', methods=['GET'])
+# @jwt_required()
+# def add_asset_page():
+#     # This will be implemented in the future
+    
+#     return render_template('message.html', 
+#                           title="Add CSV", 
+#                           message="Add Asset functionality coming soon!")

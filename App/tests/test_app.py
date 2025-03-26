@@ -330,3 +330,9 @@ class AssetAssignmentIntegrationTests(unittest.TestCase):
         self.assertTrue(result)
         aa = get_asset_assignment_by_id("AA3")
         self.assertIsNone(aa)
+        
+        
+class AssetIntegrationTests(unittest.TestCase):
+    def test_add_asset(self):
+        test_a = add_asset()
+        self.assertEqual()
