@@ -87,23 +87,50 @@ function renderDiscrepancies(discrepancies) {
         discrepancyItem.dataset.status = status.toLowerCase();
         discrepancyItem.dataset.assetId = assetId;
         
-        // Create action buttons based on status
         let actionButtonsHTML = `
-            <div class="btn-group action-group">
-                <a href="/asset/${assetId}" class="btn btn-primary action-button">
-                    <i class="bi bi-info-circle"></i> Asset Report
-                </a>
-                <button class="btn btn-success mark-found-btn" data-asset-id="${assetId}" data-asset-name="${description}">
-                    <i class="bi bi-check-circle"></i> Mark as Found
+        <div class="btn-group action-group">
+            <!-- Primary Actions -->
+            <button class="btn btn-success btn-sm mark-found-btn d-flex align-items-center" 
+                    data-tooltip="Mark Found in Original Location"
+                    data-asset-id="${assetId}" 
+                    data-asset-name="${description}">
+                <i class="bi bi-check-circle me-1"></i> 
+                <span class="d-none d-md-inline">Found</span>
+            </button>
+            
+            <button class="btn btn-primary btn-sm found-relocate-btn d-flex align-items-center" 
+                    data-tooltip="Relocate to New Room"
+                    data-asset-id="${assetId}" 
+                    data-asset-name="${description}">
+                <i class="bi bi-geo-alt me-1"></i> 
+                <span class="d-none d-md-inline">Relocate</span>
+            </button>
+    
+            <!-- Dropdown for Less Common Actions -->
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center" 
+                        type="button"
+                        data-tooltip="More Actions"
+                        data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots-vertical"></i>
                 </button>
-                <button class="btn btn-info found-relocate-btn" data-asset-id="${assetId}" data-asset-name="${description}">
-                    <i class="bi bi-geo-alt"></i> Found & Relocated
-                </button>
-                <button class="btn btn-danger mark-lost-btn" data-asset-id="${assetId}" data-asset-name="${description}">
-                    <i class="bi bi-x-circle"></i> Mark as Lost
-                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <button class="dropdown-item mark-lost-btn text-danger" 
+                                data-asset-id="${assetId}" 
+                                data-asset-name="${description}">
+                            <i class="bi bi-x-circle me-2"></i>Mark Lost
+                        </button>
+                    </li>
+                    <li>
+                        <a href="/asset/${assetId}" class="dropdown-item">
+                            <i class="bi bi-info-circle me-2"></i>Details
+                        </a>
+                    </li>
+                </ul>
             </div>
-        `;
+        </div>
+    `;
         
         discrepancyItem.innerHTML = `
             <div class="discrepancy-icon ${status.toLowerCase()}-icon">

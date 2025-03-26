@@ -57,21 +57,21 @@
             margin-bottom: 0;
         }
         
-        .action-buttons {
+        <!-- .action-buttons {
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
             min-width: 220px;
             gap: 8px;
-        }
+        } -->
         
-        .action-button {
+        <!-- .action-button {
             text-align: left;
             display: flex;
             align-items: center;
             gap: 5px;
             width: 100%;
-        }
+        } -->
         
         .action-button i {
             width: 20px;
@@ -117,6 +117,92 @@
             padding: 2px 8px;
             border-radius: 10px;
             font-size: 0.8rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-shrink: 0;
+            min-width: 280px; /* Increased width */
+            justify-content: flex-end;
+        }
+        
+        .action-group {
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+        
+        /* Responsive Button Text */
+        .btn .bi + span {
+            margin-left: 6px;
+        }
+        
+        @media (max-width: 768px) {
+            .action-group {
+                flex-direction: column !important;
+            }
+            
+            .action-buttons {
+                min-width: auto;
+            }
+        }
+        
+        /* Prevent text wrapping in buttons */
+        .btn {
+            white-space: nowrap;
+        }
+
+        .mark-found-btn {
+            padding: 6px 12px;
+        }
+
+        .action-dropdown .dropdown-toggle {
+            padding: 6px 12px;
+            border: 1px solid #dee2e6;
+        }
+
+        /* Tooltip Styles */
+        .btn[data-tooltip] {
+            position: relative;
+            overflow: visible;
+        }
+
+        .btn[data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+
+        .btn[data-tooltip]:hover::after {
+            opacity: 1;
+        }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            .action-group {
+                flex-direction: column;
+            }
+            
+            .dropdown-menu {
+                position: fixed!important;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                top: auto!important;
+                transform: none!important;
+            }
         }
         
         /* Responsive styles */
