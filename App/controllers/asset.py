@@ -6,10 +6,6 @@ from App.controllers.scanevent import add_scan_event
 from flask_jwt_extended import current_user
 from App.database import db 
 
-
-    
-
-
 def get_asset(id):
     return Asset.query.filter_by(id=id).first()
 

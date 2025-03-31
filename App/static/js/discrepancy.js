@@ -87,50 +87,94 @@ function renderDiscrepancies(discrepancies) {
         discrepancyItem.dataset.status = status.toLowerCase();
         discrepancyItem.dataset.assetId = assetId;
         
-        let actionButtonsHTML = `
-        <div class="btn-group action-group">
-            <!-- Primary Actions -->
-            <button class="btn btn-success btn-sm mark-found-btn d-flex align-items-center" 
-                    data-tooltip="Mark Found in Original Location"
-                    data-asset-id="${assetId}" 
-                    data-asset-name="${description}">
-                <i class="bi bi-check-circle me-1"></i> 
-                <span class="d-none d-md-inline">Found</span>
-            </button>
-            
-            <button class="btn btn-primary btn-sm found-relocate-btn d-flex align-items-center" 
-                    data-tooltip="Relocate to New Room"
-                    data-asset-id="${assetId}" 
-                    data-asset-name="${description}">
-                <i class="bi bi-geo-alt me-1"></i> 
-                <span class="d-none d-md-inline">Relocate</span>
-            </button>
-    
-            <!-- Dropdown for Less Common Actions -->
-            <div class="dropdown">
-                <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center" 
-                        type="button"
-                        data-tooltip="More Actions"
-                        data-bs-toggle="dropdown">
-                    <i class="bi bi-three-dots-vertical"></i>
+        // Create different action buttons based on asset status
+        let actionButtonsHTML = '';
+        
+        if (status === 'Missing') {
+            // For Missing assets - show all buttons including "Mark as Lost"
+            actionButtonsHTML = `
+            <div class="btn-group action-group">
+                <!-- Primary Actions -->
+                <button class="btn btn-success btn-sm mark-found-btn d-flex align-items-center" 
+                        data-tooltip="Mark Found in Original Location"
+                        data-asset-id="${assetId}" 
+                        data-asset-name="${description}">
+                    <i class="bi bi-check-circle me-1"></i> 
+                    <span class="d-none d-md-inline">Found</span>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <button class="dropdown-item mark-lost-btn text-danger" 
-                                data-asset-id="${assetId}" 
-                                data-asset-name="${description}">
-                            <i class="bi bi-x-circle me-2"></i>Mark Lost
-                        </button>
-                    </li>
-                    <li>
-                        <a href="/asset/${assetId}" class="dropdown-item">
-                            <i class="bi bi-info-circle me-2"></i>Details
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    `;
+                
+                <button class="btn btn-primary btn-sm found-relocate-btn d-flex align-items-center" 
+                        data-tooltip="Relocate to New Room"
+                        data-asset-id="${assetId}" 
+                        data-asset-name="${description}">
+                    <i class="bi bi-geo-alt me-1"></i> 
+                    <span class="d-none d-md-inline">Relocate</span>
+                </button>
+        
+                <!-- Dropdown for Less Common Actions -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center" 
+                            type="button"
+                            data-tooltip="More Actions"
+                            data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <button class="dropdown-item mark-lost-btn text-danger" 
+                                    data-asset-id="${assetId}" 
+                                    data-asset-name="${description}">
+                                <i class="bi bi-x-circle me-2"></i>Mark Lost
+                            </button>
+                        </li>
+                        <li>
+                            <a href="/asset/${assetId}" class="dropdown-item">
+                                <i class="bi bi-info-circle me-2"></i>Details
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>`;
+        } else if (status === 'Misplaced') {
+            // For Misplaced assets - no "Mark as Lost" button and different behavior for "Relocate"
+            actionButtonsHTML = `
+            <div class="btn-group action-group">
+                <!-- Primary Actions -->
+                <button class="btn btn-success btn-sm mark-found-btn d-flex align-items-center" 
+                        data-tooltip="Mark Found in Original Location"
+                        data-asset-id="${assetId}" 
+                        data-asset-name="${description}">
+                    <i class="bi bi-check-circle me-1"></i> 
+                    <span class="d-none d-md-inline">Found</span>
+                </button>
+                
+                <button class="btn btn-primary btn-sm misplaced-reassign-btn d-flex align-items-center" 
+                        data-tooltip="Reassign to Current Location"
+                        data-asset-id="${assetId}" 
+                        data-asset-name="${description}"
+                        data-current-location="${asset.last_located}">
+                    <i class="bi bi-geo-alt me-1"></i> 
+                    <span class="d-none d-md-inline">Reassign</span>
+                </button>
+        
+                <!-- Dropdown for Less Common Actions -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center" 
+                            type="button"
+                            data-tooltip="More Actions"
+                            data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a href="/asset/${assetId}" class="dropdown-item">
+                                <i class="bi bi-info-circle me-2"></i>Details
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>`;
+        }
         
         discrepancyItem.innerHTML = `
             <div class="discrepancy-icon ${status.toLowerCase()}-icon">
@@ -308,6 +352,50 @@ async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
     }
 }
 
+// New function to handle automatically reassigning a misplaced asset to its current location
+async function reassignMisplacedAsset(assetId, assetName, currentLocationId) {
+    try {
+        // Confirmation message for users to understand what's happening
+        if (confirm(`Reassign ${assetName} (${assetId}) to its current location? This will update the asset's assigned room to match where it was found.`)) {
+            const response = await fetch(`/api/asset/${assetId}/relocate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    roomId: currentLocationId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showStatusMessage(
+                    'Asset Reassigned', 
+                    `${assetName} (${assetId}) has been reassigned to its current location. The asset is no longer misplaced.`,
+                    'success'
+                );
+                
+                // Reload discrepancies after action
+                loadDiscrepancies();
+            } else {
+                showStatusMessage(
+                    'Error', 
+                    result.message || 'Failed to reassign asset. Please try again.',
+                    'danger'
+                );
+            }
+        }
+    } catch (error) {
+        console.error('Error reassigning misplaced asset:', error);
+        showStatusMessage(
+            'Error', 
+            'An error occurred while trying to reassign the asset. Please try again.',
+            'danger'
+        );
+    }
+}
+
 // Function to show status messages in modal
 function showStatusMessage(title, message, type) {
     const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
@@ -365,7 +453,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Found and Relocated button
+        // Misplaced Reassign button - automatically reassigns to current location
+        if (e.target.closest('.misplaced-reassign-btn')) {
+            const button = e.target.closest('.misplaced-reassign-btn');
+            const assetId = button.dataset.assetId;
+            const assetName = button.dataset.assetName;
+            const currentLocation = button.dataset.currentLocation;
+            
+            reassignMisplacedAsset(assetId, assetName, currentLocation);
+        }
+        
+        // Found and Relocated button (for missing assets)
         if (e.target.closest('.found-relocate-btn')) {
             const button = e.target.closest('.found-relocate-btn');
             currentAssetId = button.dataset.assetId;
