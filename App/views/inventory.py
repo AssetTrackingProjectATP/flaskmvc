@@ -1,9 +1,9 @@
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, jsonify, request
 from flask_jwt_extended import jwt_required, current_user
-from App.controllers.asset import get_all_assets_json, get_asset
-from App.controllers.assignee import get_assignee_by_id
+from App.controllers.asset import get_all_assets_json, get_asset, update_asset_details
+from App.controllers.assignee import get_all_assignees_json, get_assignee_by_id
 from App.controllers.room import get_room
-from App.controllers.scanevent import get_scans_by_asset
+from App.controllers.scanevent import add_scan_event, get_scans_by_asset
 
 inventory_views = Blueprint('inventory_views', __name__, template_folder='../templates')
 
@@ -66,3 +66,59 @@ def asset_report(asset_id):
                           last_location_name=last_location_name,
                           assignee_name=assignee_name,
                           scan_events=enriched_scan_events)
+    
+@inventory_views.route('/api/asset/<asset_id>/update', methods=['POST'])
+@jwt_required()
+def update_asset_details_endpoint(asset_id):
+    """API endpoint to update editable asset details"""
+    data = request.json
+    
+    if not data:
+        return jsonify({'success': False, 'message': 'No data provided'}), 400
+    
+    # Extract data from request
+    description = data.get('description')
+    model = data.get('model')
+    brand = data.get('brand')
+    serial_number = data.get('serial_number')
+    assignee_id = data.get('assignee_id')
+    notes = data.get('notes')
+    
+    # Basic validation
+    if not description:
+        return jsonify({'success': False, 'message': 'Description is required'}), 400
+    
+    # Update the asset details
+    updated_asset = update_asset_details(
+        asset_id, description, model, brand, serial_number, assignee_id, notes
+    )
+    
+    if not updated_asset:
+        return jsonify({'success': False, 'message': 'Failed to update asset. Asset not found or error occurred.'}), 404
+    
+    # Add a scan event to record this update
+    try:
+        add_scan_event(
+            asset_id=asset_id,
+            user_id=current_user.id,
+            room_id=updated_asset.room_id,
+            status=updated_asset.status,
+            notes=f"Asset details updated by {current_user.username}"
+        )
+    except Exception as e:
+        # Log the error but don't fail the request
+        print(f"Error adding scan event: {e}")
+    
+    return jsonify({
+        'success': True,
+        'message': 'Asset details updated successfully',
+        'asset': updated_asset.get_json()
+    })
+
+#endpoint to get all assignees for the dropdown
+@inventory_views.route('/api/assignees', methods=['GET'])
+@jwt_required()
+def get_assignees():
+    """API endpoint to get all assignees for dropdown selection"""
+    assignees = get_all_assignees_json()
+    return jsonify(assignees)

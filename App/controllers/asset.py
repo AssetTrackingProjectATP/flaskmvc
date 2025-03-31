@@ -242,3 +242,28 @@ def mark_asset_found(asset_id, user_id=None, return_to_room=True):
         print(f"Error marking asset as found: {e}")
         db.session.rollback()
         return None
+    
+def update_asset_details(asset_id, description, model, brand, serial_number, assignee_id, notes):
+    """Update basic asset details excluding location and status fields"""
+    asset = get_asset(asset_id)
+    if not asset:
+        return None
+    
+    # Update only the editable fields
+    asset.description = description
+    asset.model = model
+    asset.brand = brand
+    asset.serial_number = serial_number
+    asset.assignee_id = assignee_id
+    asset.notes = notes
+    
+    # Automatically update the last_update timestamp
+    asset.last_update = datetime.now()
+    
+    try:
+        db.session.commit()
+        return asset
+    except Exception as e:
+        print(f"Error updating asset details: {e}")
+        db.session.rollback()
+        return None

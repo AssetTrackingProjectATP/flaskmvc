@@ -142,13 +142,75 @@
     </div>
 
     <div class="content-area">
+    <!-- Edit Button - Add next to the Back button -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2>Asset Report</h2>
-            <a href="{{ request.referrer or url_for('inventory_views.inventory_page') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Back
-            </a>
+            <div>
+                <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#editAssetModal">
+                    <i class="bi bi-pencil"></i> Edit Asset
+                </button>
+                <a href="{{ request.referrer or url_for('inventory_views.inventory_page') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
         </div>
-        
+
+        <!-- Edit Asset Modal -->
+        <div class="modal fade" id="editAssetModal" tabindex="-1" aria-labelledby="editAssetModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editAssetModalLabel">Edit Asset</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editAssetForm">
+                            <input type="hidden" id="asset_id" name="asset_id" value="{{ asset.id }}">
+                            
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="description" name="description" value="{{ asset.description }}">
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="brand" class="form-label">Brand</label>
+                                    <input type="text" class="form-control" id="brand" name="brand" value="{{ asset.brand }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="model" class="form-label">Model</label>
+                                    <input type="text" class="form-control" id="model" name="model" value="{{ asset.model }}">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="serial_number" class="form-label">Serial Number</label>
+                                <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ asset.serial_number }}">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="assignee_id" class="form-label">Assigned To</label>
+                                <select class="form-select" id="assignee_id" name="assignee_id">
+                                    <option value="{{ asset.assignee_id }}" selected>{{ assignee_name }}</option>
+                                    <!-- Additional assignees will be loaded dynamically -->
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">Notes</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="3">{{ asset.notes }}</textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveAssetBtn">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+
         <div class="row">
             <!-- Basic Information Card -->
             <div class="col-md-6 mb-4">
@@ -543,6 +605,158 @@
             }
             
             // Function to show status messages in modal
+            function showStatusMessage(title, message, type) {
+                const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
+                const statusTitle = document.getElementById('statusTitle');
+                const statusMessage = document.getElementById('statusMessage');
+                
+                statusTitle.textContent = title;
+                statusMessage.innerHTML = message;
+                
+                // Set the appropriate class based on the message type
+                statusMessage.className = '';
+                if (type === 'success') {
+                    statusMessage.classList.add('text-success');
+                } else if (type === 'danger') {
+                    statusMessage.classList.add('text-danger');
+                } else if (type === 'warning') {
+                    statusMessage.classList.add('text-warning');
+                }
+                
+                statusModal.show();
+            }
+        });
+
+        // JavaScript for the Asset Edit functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load assignees when modal opens
+            const editModal = document.getElementById('editAssetModal');
+            if (editModal) {
+                editModal.addEventListener('show.bs.modal', loadAssignees);
+            }
+            
+            // Setup save button event handler
+            const saveButton = document.getElementById('saveAssetBtn');
+            if (saveButton) {
+                saveButton.addEventListener('click', saveAssetChanges);
+            }
+            
+            // Function to load assignees for dropdown
+            async function loadAssignees() {
+                try {
+                    const response = await fetch('/api/assignees');
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch assignees');
+                    }
+                    
+                    const assignees = await response.json();
+                    const assigneeSelect = document.getElementById('assignee_id');
+                    const currentAssigneeId = assigneeSelect.value;
+                    
+                    // Store current selected option text
+                    const currentAssigneeName = assigneeSelect.options[0].text;
+                    
+                    // Clear dropdown but keep current selection
+                    assigneeSelect.innerHTML = '';
+                    
+                    // Add current assignee back as first option
+                    const currentOption = document.createElement('option');
+                    currentOption.value = currentAssigneeId;
+                    currentOption.textContent = currentAssigneeName;
+                    assigneeSelect.appendChild(currentOption);
+                    
+                    // Add all other assignees
+                    assignees.forEach(assignee => {
+                        // Skip if this is the current assignee (already added)
+                        if (assignee.id == currentAssigneeId) return;
+                        
+                        const option = document.createElement('option');
+                        option.value = assignee.id;
+                        option.textContent = `${assignee.fname} ${assignee.lname}`;
+                        assigneeSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading assignees:', error);
+                    showStatusMessage(
+                        'Error', 
+                        'Failed to load assignees. Some features may not work properly.',
+                        'warning'
+                    );
+                }
+            }
+            
+            // Function to save asset changes
+            async function saveAssetChanges() {
+                // Get form data
+                const assetId = document.getElementById('asset_id').value;
+                const description = document.getElementById('description').value;
+                const brand = document.getElementById('brand').value;
+                const model = document.getElementById('model').value;
+                const serialNumber = document.getElementById('serial_number').value;
+                const assigneeId = document.getElementById('assignee_id').value;
+                const notes = document.getElementById('notes').value;
+                
+                // Validation
+                if (!description) {
+                    showStatusMessage('Error', 'Description cannot be empty', 'danger');
+                    return;
+                }
+                
+                // Prepare data for submission
+                const assetData = {
+                    id: assetId,
+                    description: description,
+                    brand: brand,
+                    model: model,
+                    serial_number: serialNumber,
+                    assignee_id: assigneeId,
+                    notes: notes
+                };
+                
+                try {
+                    const response = await fetch(`/api/asset/${assetId}/update`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(assetData)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        // Close the modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editAssetModal'));
+                        modal.hide();
+                        
+                        showStatusMessage(
+                            'Success', 
+                            'Asset has been updated successfully.',
+                            'success'
+                        );
+                        
+                        // Reload the page after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showStatusMessage(
+                            'Error', 
+                            result.message || 'Failed to update asset. Please try again.',
+                            'danger'
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error updating asset:', error);
+                    showStatusMessage(
+                        'Error', 
+                        'An error occurred while trying to update the asset. Please try again.',
+                        'danger'
+                    );
+                }
+            }
+            
+            // Function to show status messages in modal (reusing existing function)
             function showStatusMessage(title, message, type) {
                 const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
                 const statusTitle = document.getElementById('statusTitle');
