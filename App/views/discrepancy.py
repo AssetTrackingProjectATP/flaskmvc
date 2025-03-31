@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, jsonify, request
 from flask_jwt_extended import jwt_required, current_user
 from App.controllers.asset import (
+    get_asset,
     get_assets_by_status, 
     get_discrepant_assets, 
     mark_asset_lost, 
@@ -8,6 +9,8 @@ from App.controllers.asset import (
     update_asset_location
 )
 from App.controllers.room import get_room, get_all_rooms
+from datetime import datetime
+from App.controllers.scanevent import add_scan_event
 
 discrepancy_views = Blueprint('discrepancy_views', __name__, template_folder='../templates')
 
@@ -100,6 +103,8 @@ def mark_asset_as_found(asset_id):
         'asset': asset.get_json()
     })
 
+
+
 @discrepancy_views.route('/api/asset/<asset_id>/relocate', methods=['POST'])
 @jwt_required()
 def relocate_asset(asset_id):
@@ -111,24 +116,45 @@ def relocate_asset(asset_id):
     
     new_room_id = data['roomId']
     
-    # First update the location
-    updated_asset = update_asset_location(asset_id, new_room_id, user_id=current_user.id)
-    
-    if not updated_asset:
-        return jsonify({'success': False, 'message': 'Failed to update asset location. Asset not found or error occurred.'}), 404
-    
-    # Then mark as found with return_to_room=False (since we already set the location)
-    asset = mark_asset_found(asset_id, current_user.id, return_to_room=False)
-    
+    # Get the asset directly
+    asset = get_asset(asset_id)
     if not asset:
-        return jsonify({'success': False, 'message': 'Failed to mark asset as found. Asset location was updated but status update failed.'}), 500
+        return jsonify({'success': False, 'message': 'Asset not found'}), 404
     
-    # Get room name for the response message
-    room = get_room(new_room_id)
-    room_name = room.room_name if room else f"Room {new_room_id}"
+    # Store old status and location for changelog
+    old_status = asset.status
+    old_location = asset.last_located
     
-    return jsonify({
-        'success': True,
-        'message': f'Asset successfully marked as found and relocated to {room_name}',
-        'asset': asset.get_json()
-    })
+    # Update both room_id AND last_located in one operation
+    asset.last_located = new_room_id
+    asset.room_id = new_room_id  # This is the key change - directly update room_id
+    asset.status = "Good"
+    asset.last_update = datetime.now()
+    
+    try:
+        # Create a single scan event using the existing controller
+        notes = f"Asset relocated and reassigned to room {new_room_id}. Previous status: {old_status}, previous location: {old_location}."
+        
+        add_scan_event(
+            asset_id=asset_id,
+            user_id=current_user.id,
+            room_id=new_room_id,
+            status="Good",
+            notes=notes
+        )
+        
+        # # Commit all changes at once
+        # db.session.commit()
+        
+        # Get room name for the response message
+        room = get_room(new_room_id)
+        room_name = room.room_name if room else f"Room {new_room_id}"
+        
+        return jsonify({
+            'success': True,
+            'message': f'Asset successfully reassigned to {room_name}',
+            'asset': asset.get_json()
+        })
+    except Exception as e:
+        # db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error updating asset: {str(e)}'}), 500
