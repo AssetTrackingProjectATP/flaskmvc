@@ -1,4 +1,5 @@
 from datetime import datetime
+from App.controllers.room import get_room
 from App.models import Asset 
 import os, csv
 from App.models.asset import *
@@ -125,7 +126,7 @@ def update_asset_location(asset_id, new_location, user_id=None):
         db.session.commit()
         
         # Create a scan event to record this update
-        notes = f"Asset moved from {old_location} to {new_location}. Status changed from {old_status} to {asset.status}."
+        notes = f"Asset moved from {get_room(old_location).room_name} to {get_room(new_location).room_name}. Status changed from {old_status} to {asset.status}."
         
         # Use the current_user's ID if user_id not provided
         if not user_id and current_user:
