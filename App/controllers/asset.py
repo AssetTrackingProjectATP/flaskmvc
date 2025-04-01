@@ -40,9 +40,6 @@ def add_asset(id, description, model, brand, serial_number, room_id, last_locate
         status = "Good"
     
     newAsset = Asset(id, description, model, brand, serial_number, room_id, last_located, assignee_id, last_update, notes, status)
-    
-
-    
 
     try:
         db.session.add(newAsset)
