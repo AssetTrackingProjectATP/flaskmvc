@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 
 def load_config(app, overrides):
@@ -15,5 +16,8 @@ def load_config(app, overrides):
     app.config["JWT_COOKIE_SECURE"] = True
     app.config["JWT_COOKIE_CSRF_PROTECT"] = False
     app.config['FLASK_ADMIN_SWATCH'] = 'darkly'
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
+    app.config["JWT_REFRESH_COOKIE_NAME"] = "refresh_token"
+    app.config["JWT_HEADER_NAME"] = "Cookie"
     for key in overrides:
         app.config[key] = overrides[key]

@@ -1,3 +1,4 @@
+// Global state variables
 let currentAuditMethod = 'manual';
 let currentBuilding = null;
 let currentFloor = null;
@@ -6,15 +7,24 @@ let expectedAssets = [];
 let scannedAssets = [];
 let isRoomAuditActive = false;
 
+// Barcode scanner variables
 let isScanning = false;
 let scanBuffer = '';
 let scanTimeout = null;
 const SCAN_TIMEOUT_MS = 20;
 
+// RFID and QR simulation variables
+let rfidSimulationInterval = null;
+let qrSimulationInterval = null;
+
+/**
+ * Building, Floor, and Room Selection Functions
+ */
 function loadFloors() {
     const buildingSelect = document.getElementById('buildingSelect');
     currentBuilding = buildingSelect.value;
     
+    // Reset selections
     currentFloor = null;
     currentRoom = null;
     
@@ -24,6 +34,7 @@ function loadFloors() {
         
         floorSelect.innerHTML = '<option selected>Select Floor</option>';
         
+        // Fetch floors for the selected building
         fetch(`/api/floors/${currentBuilding}`)
             .then(response => response.json())
             .then(floors => {
@@ -34,7 +45,10 @@ function loadFloors() {
                     floorSelect.appendChild(option);
                 });
             })
-            .catch(error => console.error('Error fetching floors:', error));
+            .catch(error => {
+                console.error('Error fetching floors:', error);
+                showScanMessage('Error loading floors. Please try again.', 'danger');
+            });
         
         hideElements(['roomSelectContainer', 'auditMethodButtons', 'searchContainer', 
                       'assetList', 'scannedAssetsList']);
@@ -56,6 +70,7 @@ function loadRooms() {
         
         roomSelect.innerHTML = '<option selected>Select Room</option>';
         
+        // Fetch rooms for the selected floor
         fetch(`/api/rooms/${currentFloor}`)
             .then(response => response.json())
             .then(rooms => {
@@ -66,7 +81,10 @@ function loadRooms() {
                     roomSelect.appendChild(option);
                 });
             })
-            .catch(error => console.error('Error fetching rooms:', error));
+            .catch(error => {
+                console.error('Error fetching rooms:', error);
+                showScanMessage('Error loading rooms. Please try again.', 'danger');
+            });
         
         hideElements(['auditMethodButtons', 'searchContainer', 'assetList', 'scannedAssetsList']);
     } else {
@@ -79,71 +97,104 @@ function loadRoomAssets() {
     const roomSelect = document.getElementById('roomSelect');
     currentRoom = roomSelect.value;
     
-    if (currentRoom && currentRoom != 'Select Room') {
+    if (currentRoom && currentRoom !== 'Select Room') {
         showElements(['auditMethodButtons', 'searchContainer']);
         
+        // Fetch assets for the selected room
         fetch(`/api/assets/${currentRoom}`)
             .then(response => response.json())
             .then(assets => {
-                expectedAssets = assets;
-                
-                expectedAssets.forEach(asset => {
-                    asset.found = false;
-                    
-                    if (!asset.id && asset['id: ']) {
-                        asset.id = asset['id: '];
-                    }
-                });
+                if (assets && assets.length > 0) {
+                    expectedAssets = assets.map(asset => {
+                        // Normalize asset properties
+                        return {
+                            id: asset.id || asset['id:'] || asset.asset_id || '',
+                            description: asset.description || 'Unknown Asset',
+                            model: asset.model || '',
+                            brand: asset.brand || '',
+                            serial_number: asset.serial_number || '',
+                            room_id: asset.room_id || currentRoom,
+                            last_located: asset.last_located || currentRoom,
+                            assignee_id: asset.assignee_id || 'Unassigned',
+                            last_update: asset.last_update || new Date().toISOString(),
+                            notes: asset.notes || '',
+                            status: asset.status || 'Active',
+                            found: false
+                        };
+                    });
+                } else {
+                    expectedAssets = [];
+                    showScanMessage('No assets found in this room.', 'info');
+                }
                 
                 displayExpectedAssets();
                 showElements(['assetList', 'scannedAssetsList']);
             })
-            .catch(error => console.error('Error fetching assets:', error));
+            .catch(error => {
+                console.error('Error fetching assets:', error);
+                showScanMessage('Error loading assets. Please try again.', 'danger');
+            });
     } else {
         hideElements(['auditMethodButtons', 'searchContainer', 'assetList', 'scannedAssetsList']);
     }
 }
 
+/**
+ * Asset Display Functions
+ */
 function displayExpectedAssets() {
     const tableBody = document.getElementById('expectedAssetsTableBody');
     tableBody.innerHTML = '';
     
+    if (expectedAssets.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center">No assets expected in this room</td></tr>';
+        return;
+    }
+    
     expectedAssets.forEach(asset => {
         const row = document.createElement('tr');
+        row.id = `expected-asset-${asset.id}`;
         
+        // Asset Description
         appendCell(row, asset.description);
         
-        const idCell = document.createElement('td');
-        const assetId = asset.id || asset.asset_id || asset.assetId || 
-                        (asset['id: '] ? asset['id: '] : null) || '1';
-        idCell.textContent = assetId;
-        row.appendChild(idCell);
+        // Asset ID
+        appendCell(row, asset.id);
         
+        // Brand/Model
         appendCell(row, `${asset.brand} ${asset.model}`);
         
+        // Assignee
         appendCell(row, asset.assignee_id);
         
+        // Status Cell
         const statusCell = document.createElement('td');
         const statusIndicator = document.createElement('span');
         
-        if (asset.status === 'present' || asset.status === 'Active') {
-            statusIndicator.className = 'status-dot status-good';
-            statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' Active'));
-        } else {
+        if (asset.status === 'Missing') {
             statusIndicator.className = 'status-dot status-poor';
             statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' ' + asset.status));
+            statusCell.appendChild(document.createTextNode(' Missing'));
+        } else if (asset.status === 'Misplaced') {
+            statusIndicator.className = 'status-dot status-warning';
+            statusCell.appendChild(statusIndicator);
+            statusCell.appendChild(document.createTextNode(' Misplaced'));
+        } else {
+            statusIndicator.className = 'status-dot status-good';
+            statusCell.appendChild(statusIndicator);
+            statusCell.appendChild(document.createTextNode(' Good'));
         }
         row.appendChild(statusCell);
         
+        // Last Updated Cell
         const lastUpdatedCell = document.createElement('td');
         const date = new Date(asset.last_update);
         lastUpdatedCell.textContent = date.toLocaleDateString();
         row.appendChild(lastUpdatedCell);
         
+        // Found Status Cell
         const foundCell = document.createElement('td');
-        foundCell.id = `found-status-${assetId}`;
+        foundCell.id = `found-status-${asset.id}`;
         foundCell.className = asset.found ? 'found-yes' : 'found-no';
         foundCell.textContent = asset.found ? 'YES' : 'NO';
         row.appendChild(foundCell);
@@ -151,21 +202,130 @@ function displayExpectedAssets() {
         tableBody.appendChild(row);
     });
     
+    // Clear the scanned assets table
     document.getElementById('scannedAssetsTableBody').innerHTML = '';
+    scannedAssets = [];
 }
 
-function appendCell(row, text) {
-    const cell = document.createElement('td');
-    cell.textContent = text;
-    row.appendChild(cell);
-    return cell;
+function updateScannedAssetsTable() {
+    const scannedTableBody = document.getElementById('scannedAssetsTableBody');
+    scannedTableBody.innerHTML = '';
+    
+    if (scannedAssets.length === 0) {
+        scannedTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No assets scanned yet</td></tr>';
+        return;
+    }
+    
+    // Sort assets: misplaced or unexpected first, then by scan time (most recent first)
+    const sortedAssets = [...scannedAssets].sort((a, b) => {
+        if (a.status === 'Misplaced' && b.status !== 'Misplaced') return -1;
+        if (a.status !== 'Misplaced' && b.status === 'Misplaced') return 1;
+        if (a.status === 'Unexpected' && b.status !== 'Unexpected') return -1;
+        if (a.status !== 'Unexpected' && b.status === 'Unexpected') return 1;
+        
+        // Sort by scan time (most recent first)
+        return new Date(b.scanTime || b.last_update) - new Date(a.scanTime || a.last_update);
+    });
+    
+    sortedAssets.forEach(asset => {
+        const row = document.createElement('tr');
+        
+        // Apply classes based on asset status
+        if (asset.status === 'Unexpected') {
+            row.className = 'table-warning';
+        } else if (asset.status === 'Misplaced') {
+            row.className = 'table-warning';
+        }
+        
+        // Asset Description
+        appendCell(row, asset.description);
+        
+        // Asset ID
+        appendCell(row, asset.id);
+        
+        // Brand/Model
+        appendCell(row, `${asset.brand || ''} ${asset.model || ''}`);
+        
+        // Location Cell
+        const locationCell = document.createElement('td');
+        const roomSelect = document.getElementById('roomSelect');
+        const currentRoomName = roomSelect ? 
+            roomSelect.options[roomSelect.selectedIndex].textContent : 
+            `Room ${currentRoom}`;
+            
+        if (asset.status === 'Misplaced') {
+            locationCell.innerHTML = `<span class="text-warning">Current: ${currentRoomName}</span><br>
+                                     <small>Assigned: Room ${asset.room_id}</small>`;
+        } else {
+            locationCell.textContent = currentRoomName;
+        }
+        row.appendChild(locationCell);
+        
+        // Status Cell
+        const statusCell = document.createElement('td');
+        const statusIndicator = document.createElement('span');
+        
+        if (asset.status === 'Unexpected') {
+            statusIndicator.className = 'status-dot status-warning';
+            statusCell.appendChild(statusIndicator);
+            statusCell.appendChild(document.createTextNode(' Unexpected'));
+        } else if (asset.status === 'Misplaced') {
+            statusIndicator.className = 'status-dot status-warning';
+            statusCell.appendChild(statusIndicator);
+            statusCell.appendChild(document.createTextNode(' Misplaced'));
+        } else if (asset.status === 'Good') {
+            statusIndicator.className = 'status-dot status-good';
+            statusCell.appendChild(statusIndicator);
+            statusCell.appendChild(document.createTextNode(' Good'));
+        } else {
+            statusIndicator.className = 'status-dot status-poor';
+            statusCell.appendChild(statusIndicator);
+            statusCell.appendChild(document.createTextNode(' ' + asset.status));
+        }
+        row.appendChild(statusCell);
+        
+        // Assignee Cell
+        appendCell(row, asset.assignee_id || 'Unassigned');
+        
+        // Last Updated Cell
+        const lastUpdatedCell = document.createElement('td');
+        const date = new Date(asset.scanTime || asset.last_update);
+        lastUpdatedCell.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        row.appendChild(lastUpdatedCell);
+        
+        scannedTableBody.appendChild(row);
+    });
+    
+    if (scannedAssets.length > 0) {
+        document.getElementById('scannedAssetsList').style.display = 'block';
+    }
 }
 
+/**
+ * Audit Method Functions
+ */
 function setAuditMethod(method) {
-    stopAllScanningMethods();
+    // Don't reset scanning if we're just changing methods
+    if (method === currentAuditMethod) return;
+    
+    // Stop the current scanning method
+    if (currentAuditMethod === 'barcode') {
+        stopBarcodeScan();
+    } else if (currentAuditMethod === 'rfid') {
+        if (rfidSimulationInterval) {
+            clearInterval(rfidSimulationInterval);
+            rfidSimulationInterval = null;
+        }
+    } else if (currentAuditMethod === 'qrcode') {
+        if (qrSimulationInterval) {
+            clearInterval(qrSimulationInterval);
+            qrSimulationInterval = null;
+        }
+    }
     
     currentAuditMethod = method;
     
+    // Update UI to show active method
     document.querySelectorAll('.audit-method-btn').forEach(btn => {
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-light');
@@ -177,8 +337,10 @@ function setAuditMethod(method) {
         activeBtn.classList.add('btn-primary');
     }
 
+    // Update scanning interface for the new method
     updateScanningInterface();
     
+    // If room audit is active, start the new scanning method
     if (isRoomAuditActive) {
         startScanningMethod(method);
     }
@@ -187,6 +349,7 @@ function setAuditMethod(method) {
 function updateScanningInterface() {
     const manualSearchGroup = document.getElementById('manualSearchGroup');
     
+    // Hide all scanning indicators
     hideElements(['scanIndicator', 'rfidIndicator', 'qrIndicator']);
     
     if (currentAuditMethod === 'manual') {
@@ -196,6 +359,7 @@ function updateScanningInterface() {
         manualSearchGroup.style.display = 'none';
     }
     
+    // If room audit is active, show the appropriate indicator
     if (isRoomAuditActive) {
         const indicatorId = {
             'barcode': 'scanIndicator',
@@ -211,14 +375,26 @@ function updateScanningInterface() {
 }
 
 function toggleRoomAudit() {
+    // Toggle room audit state
     if (!isRoomAuditActive) {
         startRoomAudit();
     } else {
-        stopRoomAudit();
+        // Confirm before stopping if this was a user action
+        if (confirm("Are you sure you want to stop the audit? Unscanned assets will be marked as missing.")) {
+            stopRoomAudit();
+        }
     }
 }
 
 function startRoomAudit() {
+    if (!currentRoom || currentRoom === 'Select Room') {
+        showScanMessage('Please select a room first', 'warning');
+        return;
+    }
+    
+    // If already active, do nothing
+    if (isRoomAuditActive) return;
+    
     isRoomAuditActive = true;
     
     const toggleButton = document.getElementById('toggleRoomAudit');
@@ -226,23 +402,65 @@ function startRoomAudit() {
     toggleButton.classList.remove('btn-success');
     toggleButton.classList.add('btn-danger');
     
+    // Disable room selection while audit is active
+    document.getElementById('buildingSelect').disabled = true;
+    document.getElementById('floorSelect').disabled = true;
+    document.getElementById('roomSelect').disabled = true;
+    
+    // Update the UI
     updateScanningInterface();
+    
+    // Ensure Enter key doesn't trigger any default actions on the page
+    document.addEventListener('keydown', preventEnterDefault, true);
+    
+    // Start the selected scanning method
     startScanningMethod(currentAuditMethod);
     
     updateScanCounter();
+    
+    showScanMessage(`Audit started for room ${currentRoom}`, 'success');
 }
 
 function stopRoomAudit() {
+    // If not active, do nothing
+    if (!isRoomAuditActive) return;
+    
     isRoomAuditActive = false;
     
     stopAllScanningMethods();
+    
+    // Remove the Enter key prevention handler
+    document.removeEventListener('keydown', preventEnterDefault, true);
     
     const toggleButton = document.getElementById('toggleRoomAudit');
     toggleButton.textContent = 'Start Room Audit';
     toggleButton.classList.remove('btn-danger');
     toggleButton.classList.add('btn-success');
     
+    // Re-enable room selection
+    document.getElementById('buildingSelect').disabled = false;
+    document.getElementById('floorSelect').disabled = false;
+    document.getElementById('roomSelect').disabled = false;
+    
     updateScanningInterface();
+    
+    // Mark unscanned assets as missing
+    markUnscannedAssetsMissing();
+    
+    showScanMessage('Audit completed. Unscanned assets marked as missing.', 'info');
+}
+
+// Function to prevent Enter key default actions except in search input
+function preventEnterDefault(e) {
+    // Allow Enter in search input for manual searching
+    if (e.target.id === 'searchInput') {
+        return true;
+    }
+    
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        return false;
+    }
 }
 
 function startScanningMethod(method) {
@@ -251,93 +469,94 @@ function startScanningMethod(method) {
     if (method === 'barcode') {
         startBarcodeScan();
     } else if (method === 'rfid') {
-        startSimulatedScan('rfid');
+        startRFIDScan();
     } else if (method === 'qrcode') {
-        startSimulatedScan('qrcode');
+        startQRCodeScan();
     }
 }
 
 function stopAllScanningMethods() {
+    // Stop barcode scanning
     if (isScanning) {
         stopBarcodeScan();
     }
     
-    ['rfidSimulationInterval', 'qrSimulationInterval'].forEach(intervalId => {
-        if (window[intervalId]) {
-            clearInterval(window[intervalId]);
-            window[intervalId] = null;
-        }
-    });
-}
-
-function createScanningIndicator(method) {
-    const indicatorId = {
-        'barcode': 'scanIndicator',
-        'rfid': 'rfidIndicator',
-        'qrcode': 'qrIndicator'
-    }[method];
-    
-    if (!indicatorId || document.getElementById(indicatorId)) return null;
-    
-    const indicatorMessages = {
-        'barcode': '<strong>Barcode scanning active</strong><br>Scan assets or select a different scanning method',
-        'rfid': '<strong>RFID scanning active</strong><br>Please place RFID reader near assets to scan',
-        'qrcode': '<strong>QR Code scanning active</strong><br>Point the camera at QR codes to scan'
-    };
-    
-    const indicator = document.createElement('div');
-    indicator.id = indicatorId;
-    indicator.className = 'alert alert-info mb-3';
-    indicator.innerHTML = indicatorMessages[method] || '';
-    
-    const searchContainer = document.getElementById('searchContainer');
-    const toggleButton = document.getElementById('toggleRoomAudit');
-    if (searchContainer && toggleButton) {
-        searchContainer.insertBefore(indicator, toggleButton);
+    // Stop RFID simulation
+    if (rfidSimulationInterval) {
+        clearInterval(rfidSimulationInterval);
+        rfidSimulationInterval = null;
     }
     
-    return indicator;
+    // Stop QR code simulation
+    if (qrSimulationInterval) {
+        clearInterval(qrSimulationInterval);
+        qrSimulationInterval = null;
+    }
 }
 
+/**
+ * Barcode Scanning Functions
+ */
 function startBarcodeScan() {
     if (!isRoomAuditActive || currentAuditMethod !== 'barcode') return;
+    
+    if (isScanning) {
+        // Already scanning, don't start again
+        return;
+    }
     
     isScanning = true;
     scanBuffer = '';
     
+    // Create or show the scan indicator
     const scanIndicator = document.getElementById('scanIndicator') || createScanningIndicator('barcode');
     if (scanIndicator) scanIndicator.style.display = 'block';
     
+    // Add event listener for keypress events
     document.addEventListener('keypress', handleScannerInput);
+    
+    console.log('Barcode scanning started');
 }
 
 function stopBarcodeScan() {
     if (!isScanning) return;
     
+    // Set scanning flag to false
     isScanning = false;
     
+    // Remove event listener
     document.removeEventListener('keypress', handleScannerInput);
     
-    const scanIndicator = document.getElementById('scanIndicator');
-    if (scanIndicator) scanIndicator.style.display = 'none';
+    console.log('Barcode scanning stopped');
 }
 
 function handleScannerInput(e) {
+    // Make sure scanning is still active
+    if (!isScanning || !isRoomAuditActive) {
+        return;
+    }
+    
+    // Allow Enter key to work normally in search input
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
         return;
     }
     
+    // Reset timeout if already waiting
     if (scanTimeout) {
         clearTimeout(scanTimeout);
     }
     
+    // Process on Enter key
     if (e.key === 'Enter') {
+        e.preventDefault(); // Prevent form submission
         processScanBuffer();
         return;
     }
     
+    // Add character to buffer
     scanBuffer += e.key;
     
+    // Set timeout to process buffer after delay (for barcode scanners that don't send Enter)
     scanTimeout = setTimeout(() => {
         if (scanBuffer.length > 0) {
             processScanBuffer();
@@ -350,79 +569,322 @@ function handleScannerInput(e) {
 function processScanBuffer() {
     if (scanBuffer.length === 0) return;
     
-    // First check if the asset is in the expected assets list for this room
-    const assetInRoom = expectedAssets.find(a => 
-        a.id === scanBuffer || 
-        (a.barcode && a.barcode === scanBuffer)
-    );
+    // Process the scanned barcode/ID
+    processScannedAsset(scanBuffer);
     
-    if (assetInRoom) {
-        markAssetAsFound(assetInRoom);
-        showScanMessage(`Asset found: ${assetInRoom.description} (${assetInRoom.id})`, 'success');
-    } else {
-        // If not in expected list, check the database to see if it exists at all
-        checkAssetInDatabase(scanBuffer);
-    }
-    
+    // Clear the buffer
     scanBuffer = '';
+    
+    // Make sure we're still scanning after processing
+    if (currentAuditMethod === 'barcode' && !isScanning && isRoomAuditActive) {
+        // If scanning got turned off somehow, turn it back on
+        startBarcodeScan();
+    }
 }
 
-async function checkAssetInDatabase(assetId) {
+/**
+ * RFID Scanning Simulation
+ */
+function startRFIDScan() {
+    if (!isRoomAuditActive || currentAuditMethod !== 'rfid') return;
+    
+    const rfidIndicator = document.getElementById('rfidIndicator') || createScanningIndicator('rfid');
+    if (rfidIndicator) rfidIndicator.style.display = 'block';
+    
+    // Simulate RFID scanning at random intervals
+    if (rfidSimulationInterval) clearInterval(rfidSimulationInterval);
+    
+    rfidSimulationInterval = setInterval(() => {
+        if (expectedAssets.length > 0) {
+            // Randomly select an asset to "scan" with higher probability for unscanned assets
+            const unscannedAssets = expectedAssets.filter(asset => !asset.found);
+            
+            if (unscannedAssets.length > 0 && Math.random() > 0.2) {
+                // 80% chance to scan an unscanned asset
+                const randomIndex = Math.floor(Math.random() * unscannedAssets.length);
+                processScannedAsset(unscannedAssets[randomIndex].id);
+            } else if (expectedAssets.length > 0) {
+                // 20% chance to scan any asset
+                const randomIndex = Math.floor(Math.random() * expectedAssets.length);
+                processScannedAsset(expectedAssets[randomIndex].id);
+            }
+            
+            // 5% chance to scan an unexpected asset
+            if (Math.random() < 0.05) {
+                const randomId = 'RFID-' + Math.floor(Math.random() * 10000);
+                processScannedAsset(randomId);
+            }
+        }
+    }, 3000); // Simulate a scan every 3 seconds
+}
+
+/**
+ * QR Code Scanning Simulation
+ */
+function startQRCodeScan() {
+    if (!isRoomAuditActive || currentAuditMethod !== 'qrcode') return;
+    
+    const qrIndicator = document.getElementById('qrIndicator') || createScanningIndicator('qrcode');
+    if (qrIndicator) qrIndicator.style.display = 'block';
+    
+    // Simulate QR scanning at random intervals (less frequent than RFID)
+    if (qrSimulationInterval) clearInterval(qrSimulationInterval);
+    
+    qrSimulationInterval = setInterval(() => {
+        if (expectedAssets.length > 0) {
+            // Randomly select an asset to "scan" with higher probability for unscanned assets
+            const unscannedAssets = expectedAssets.filter(asset => !asset.found);
+            
+            if (unscannedAssets.length > 0 && Math.random() > 0.3) {
+                // 70% chance to scan an unscanned asset
+                const randomIndex = Math.floor(Math.random() * unscannedAssets.length);
+                processScannedAsset(unscannedAssets[randomIndex].id);
+            } else if (expectedAssets.length > 0) {
+                // 30% chance to scan any asset
+                const randomIndex = Math.floor(Math.random() * expectedAssets.length);
+                processScannedAsset(expectedAssets[randomIndex].id);
+            }
+            
+            // 10% chance to scan an unexpected asset
+            if (Math.random() < 0.1) {
+                const randomId = 'QR-' + Math.floor(Math.random() * 10000);
+                processScannedAsset(randomId);
+            }
+        }
+    }, 5000); // Simulate a scan every 5 seconds
+}
+
+/**
+ * Manual Asset Search
+ */
+async function manualSearchAsset() {
+    if (!isRoomAuditActive) {
+        showScanMessage('Please start a room audit first', 'warning');
+        return;
+    }
+    
+    const searchInput = document.getElementById('searchInput');
+    const assetId = searchInput.value.trim();
+   
+    if (!assetId) {
+        showScanMessage('Please enter an asset ID', 'warning');
+        return;
+    }
+
     try {
-        const response = await fetch(`/api/asset/${assetId}`);
-        
-        if (response.ok) {
-            // Asset exists in database but not in this room
-            const asset = await response.json();
-            
-            // Add the asset to scanned assets with misplaced status
-            addMisplacedAsset(asset);
-            
-            showScanMessage(
-                `Asset found: ${asset.description || 'Unknown'} (${assetId}) - Not assigned to this room!`, 
-                'warning'
-            );
+        await processScannedAsset(assetId);
+        // Clear the input after successful processing
+        searchInput.value = '';
+        // Focus back on the input for the next scan
+        searchInput.focus();
+    } catch (error) {
+        console.error('Error in manual search:', error);
+        showScanMessage('Error processing asset', 'danger');
+    }
+}
+
+/**
+ * Process Scanned Assets
+ */
+async function processScannedAsset(assetId) {
+    if (!isRoomAuditActive) return;
+    
+    // Check if the asset is in the expected assets list for this room
+    const assetInRoom = expectedAssets.find(a => a.id === assetId);
+    
+    if (assetInRoom) {
+        // Asset is expected in this room
+        if (!assetInRoom.found) {
+            // First time scanning this asset
+            await updateAssetLocation(assetInRoom.id, currentRoom);
+            markAssetAsFound(assetInRoom);
         } else {
-            // Asset not found in database
-            showScanMessage(`Unknown asset: ${assetId}`, 'warning');
-            addUnexpectedAsset(assetId);
+            // Asset already scanned
+            showScanMessage(`Asset already scanned: ${assetInRoom.description} (${assetInRoom.id})`, 'info');
+        }
+    } else {
+        // Asset not in expected list, check if it exists elsewhere
+        try {
+            const response = await fetch(`/api/asset/${assetId}`);
+            
+            if (response.ok) {
+                // Asset exists in database but not in this room
+                const asset = await response.json();
+                
+                // Update asset location to current room and mark as misplaced
+                await updateAssetLocation(assetId, currentRoom);
+                addMisplacedAsset(asset);
+            } else {
+                // Asset not found in database
+                showScanMessage(`Unknown asset: ${assetId}`, 'warning');
+                if (confirm(`Asset "${assetId}" not found in system. Add as unexpected?`)) {
+                    addUnexpectedAsset(assetId);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking asset in database:', error);
+            showScanMessage(`Error checking asset: ${assetId}`, 'danger');
+        }
+    }
+}
+
+async function updateAssetLocation(assetId, roomId) {
+    try {
+        const response = await fetch('api/update-asset-location', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                assetId: assetId,
+                roomId: roomId
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to update asset location:', await response.text());
         }
     } catch (error) {
-        console.error('Error checking asset in database:', error);
-        showScanMessage(`Error checking asset: ${assetId}`, 'danger');
+        console.error('Error updating asset location:', error);
     }
 }
 
 function markAssetAsFound(asset) {
     asset.found = true;
+    asset.status = 'Good';
+    asset.last_located = currentRoom;
+    asset.last_update = new Date().toISOString();
+    asset.scanTime = new Date().toISOString();
     
-    const assetId = asset.id || asset.asset_id || asset.assetId || 
-                   (asset['id: '] ? asset['id: '] : null) || '1';
-    
-    const foundCell = document.getElementById(`found-status-${assetId}`);
+    // Update the status in the Expected Assets table
+    const foundCell = document.getElementById(`found-status-${asset.id}`);
     if (foundCell) {
         foundCell.className = 'found-yes';
         foundCell.textContent = 'YES';
-    } else {
-        const altFoundCell = document.getElementById(`found-status-${asset.id}`);
-        if (altFoundCell) {
-            altFoundCell.className = 'found-yes';
-            altFoundCell.textContent = 'YES';
-        }
     }
     
-    if (!scannedAssets.find(a => {
-        const aId = a.id || a.asset_id || a.assetId || (a['id: '] ? a['id: '] : null);
-        const thisId = asset.id || asset.asset_id || asset.assetId || (asset['id: '] ? asset['id: '] : null);
-        return aId === thisId;
-    })) {
-        scannedAssets.push(asset);
+    // Highlight the row briefly to show it was found
+    const row = document.getElementById(`expected-asset-${asset.id}`);
+    if (row) {
+        row.classList.add('table-success');
+        setTimeout(() => {
+            row.classList.remove('table-success');
+        }, 2000);
+    }
+    
+    // Add to scanned assets list if not already there
+    if (!scannedAssets.find(a => a.id === asset.id)) {
+        scannedAssets.push({...asset});
         updateScannedAssetsTable();
     }
     
     updateScanCounter();
+    
+    showScanMessage(`Asset found: ${asset.description} (${asset.id})`, 'success');
 }
 
+function addMisplacedAsset(asset) {
+    // Format the asset data
+    const assetId = asset.id || asset['id:'] || '';
+    const formattedAsset = {
+        id: assetId,
+        description: asset.description || 'Unknown Asset',
+        brand: asset.brand || 'Unknown',
+        model: asset.model || 'Unknown',
+        status: 'Misplaced',
+        room_id: asset.room_id || 'Unknown',
+        last_located: currentRoom,
+        assignee_id: asset.assignee_id || 'Unassigned',
+        last_update: asset.last_update || new Date().toISOString(),
+        scanTime: new Date().toISOString(),
+        found: true
+    };
+    
+    // Add to scanned assets list if not already there
+    if (!scannedAssets.find(a => a.id === assetId)) {
+        scannedAssets.push(formattedAsset);
+        updateScannedAssetsTable();
+    }
+    
+    showScanMessage(
+        `Asset found: ${formattedAsset.description} (${assetId}) - Not assigned to this room!`, 
+        'warning'
+    );
+}
+
+function addUnexpectedAsset(assetId) {
+    const unexpectedAsset = {
+        id: assetId,
+        description: 'Unexpected Asset',
+        brand: 'Unknown',
+        model: 'Unknown',
+        status: 'Unexpected',
+        room_id: 'Unknown',
+        last_located: currentRoom,
+        assignee_id: 'Unassigned',
+        last_update: new Date().toISOString(),
+        scanTime: new Date().toISOString(),
+        found: true
+    };
+    
+    // Add to scanned assets list
+    scannedAssets.push(unexpectedAsset);
+    updateScannedAssetsTable();
+    
+    showScanMessage(`Unexpected asset added: ${assetId}`, 'warning');
+}
+
+function markUnscannedAssetsMissing() {
+    let missingCount = 0;
+    
+    expectedAssets.forEach(asset => {
+        if (!asset.found) {
+            asset.status = 'Missing';
+            missingCount++;
+            
+            // Update status in the UI
+            const row = document.getElementById(`expected-asset-${asset.id}`);
+            if (row) {
+                const statusCell = row.cells[4]; // Status is in 5th column (index 4)
+                statusCell.innerHTML = '<span class="status-dot status-poor"></span> Missing';
+            }
+        }
+    });
+    
+    if (missingCount > 0) {
+        // Update the assets in the database
+        updateMissingAssets();
+        showScanMessage(`${missingCount} assets marked as missing`, 'warning');
+    }
+}
+
+async function updateMissingAssets() {
+    const missingAssets = expectedAssets.filter(asset => !asset.found).map(asset => asset.id);
+    
+    if (missingAssets.length === 0) return;
+    
+    try {
+        const response = await fetch('/api/mark-assets-missing', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                assetIds: missingAssets
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to mark assets as missing:', await response.text());
+        }
+    } catch (error) {
+        console.error('Error marking assets as missing:', error);
+    }
+}
+
+/**
+ * UI Helper Functions
+ */
 function updateScanCounter() {
     const foundCount = expectedAssets.filter(asset => asset.found).length;
     const totalCount = expectedAssets.length;
@@ -435,7 +897,7 @@ function updateScanCounter() {
         document.getElementById('assetList').insertBefore(scanCounter, document.getElementById('assetList').firstChild);
     }
     
-    scanCounter.innerHTML = `<strong>Asset Scan Progress:</strong> ${foundCount} of ${totalCount} assets found (${Math.round(foundCount/totalCount*100)}%)`;
+    scanCounter.innerHTML = `<strong>Asset Scan Progress:</strong> ${foundCount} of ${totalCount} assets found (${Math.round(foundCount/totalCount*100 || 0)}%)`;
     
     if (foundCount === totalCount && totalCount > 0) {
         scanCounter.className = 'alert alert-success mt-3';
@@ -467,182 +929,37 @@ function showScanMessage(message, type) {
     }, 3000);
 }
 
-function addUnexpectedAsset(barcode) {
-    const unexpectedAsset = {
-        id: `UNK-${barcode.substring(0, 6)}`,
-        barcode: barcode,
-        description: 'Unexpected Asset',
-        brand: 'Unknown',
-        model: 'Unknown',
-        status: 'unexpected',
-        room_id: currentRoom,
-        assignee_id: 'Unassigned',
-        last_update: new Date().toISOString(),
-        found: true
+function createScanningIndicator(method) {
+    const indicatorId = {
+        'barcode': 'scanIndicator',
+        'rfid': 'rfidIndicator',
+        'qrcode': 'qrIndicator'
+    }[method];
+    
+    if (!indicatorId || document.getElementById(indicatorId)) return null;
+    
+    const indicatorMessages = {
+        'barcode': '<strong>Barcode scanning active</strong><br>Scan assets or select a different scanning method',
+        'rfid': '<strong>RFID scanning active</strong><br>Please place RFID reader near assets to scan',
+        'qrcode': '<strong>QR Code scanning active</strong><br>Point the camera at QR codes to scan'
     };
     
-    scannedAssets.push(unexpectedAsset);
-    updateScannedAssetsTable();
+    const indicator = document.createElement('div');
+    indicator.id = indicatorId;
+    indicator.className = 'alert alert-info mb-3';
+    indicator.innerHTML = indicatorMessages[method] || '';
+    
+    const searchContainer = document.getElementById('searchContainer');
+    searchContainer.insertBefore(indicator, document.getElementById('toggleRoomAudit'));
+    
+    return indicator;
 }
 
-function updateScannedAssetsTable() {
-    const scannedTableBody = document.getElementById('scannedAssetsTableBody');
-    scannedTableBody.innerHTML = '';
-    
-    const sortedAssets = [...scannedAssets].sort((a, b) => {
-        // Sort by status first (unexpected and misplaced at the top)
-        if (a.status === 'unexpected' && b.status !== 'unexpected') return -1;
-        if (a.status !== 'unexpected' && b.status === 'unexpected') return 1;
-        if (a.status === 'misplaced' && b.status !== 'misplaced') return -1;
-        if (a.status !== 'misplaced' && b.status === 'misplaced') return 1;
-        
-        return new Date(b.last_update) - new Date(a.last_update);
-    });
-    
-    sortedAssets.forEach(asset => {
-        const row = document.createElement('tr');
-        
-        // Apply classes based on asset status
-        if (asset.status === 'unexpected') {
-            row.className = 'table-warning';
-        } else if (asset.status === 'misplaced') {
-            row.className = 'table-warning'; // Use same warning style for misplaced assets
-        }
-        
-        appendCell(row, asset.description);
-        
-        const idCell = document.createElement('td');
-        const assetId = asset.id || asset.asset_id || asset.assetId || 
-                        (asset['id:'] ? asset['id:'] : null) || '1';
-        idCell.textContent = assetId;
-        row.appendChild(idCell);
-        
-        appendCell(row, `${asset.brand} ${asset.model}`);
-        
-        const locationCell = document.createElement('td');
-        const roomSelect = document.getElementById('roomSelect');
-        const currentRoomName = roomSelect ? 
-            roomSelect.options[roomSelect.selectedIndex].textContent : 
-            `Room ${currentRoom}`;
-            
-        if (asset.status === 'misplaced') {
-            locationCell.innerHTML = `<span class="text-warning">Current: ${currentRoomName}</span><br>
-                                     <small>Assigned: Room ${asset.room_id}</small>`;
-        } else {
-            locationCell.textContent = currentRoomName;
-        }
-        row.appendChild(locationCell);
-        
-        const statusCell = document.createElement('td');
-        const statusIndicator = document.createElement('span');
-        
-        if (asset.status === 'unexpected') {
-            statusIndicator.className = 'status-dot status-warning';
-            statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' Unexpected'));
-        } else if (asset.status === 'misplaced') {
-            statusIndicator.className = 'status-dot status-warning';
-            statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' Misplaced'));
-        } else if (asset.status === 'present' || asset.status === 'Active') {
-            statusIndicator.className = 'status-dot status-good';
-            statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' Active'));
-        } else {
-            statusIndicator.className = 'status-dot status-poor';
-            statusCell.appendChild(statusIndicator);
-            statusCell.appendChild(document.createTextNode(' ' + asset.status));
-        }
-        row.appendChild(statusCell);
-        
-        appendCell(row, asset.assignee_id);
-        
-        const lastUpdatedCell = document.createElement('td');
-        const date = new Date(asset.last_update);
-        lastUpdatedCell.textContent = date.toLocaleDateString();
-        row.appendChild(lastUpdatedCell);
-        
-        scannedTableBody.appendChild(row);
-    });
-    
-    if (scannedAssets.length > 0) {
-        document.getElementById('scannedAssetsList').style.display = 'block';
-    }
-}
-
-async function manualSearchAsset() {
-    if (!isRoomAuditActive) {
-        showScanMessage('Please start a room audit first', 'warning');
-        return;
-    }
-    
-    const searchInput = document.getElementById('searchInput');
-    const assetId = searchInput.value.trim();
-   
-    if (!assetId) {
-        showScanMessage('Please enter an asset ID', 'warning');
-        return;
-    }
-
-    // First check if the asset is in the expected assets list for this room
-    const assetInRoom = expectedAssets.find(a => {
-        const aId = a.id || a.asset_id || a.assetId || (a['id:'] ? a['id:'] : null);
-        return aId === assetId;
-    });
-    
-    if (assetInRoom) {
-        markAssetAsFound(assetInRoom);
-        showScanMessage(`Asset found: ${assetInRoom.description} (${assetInRoom.id})`, 'success');
-        searchInput.value = '';
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/asset/${assetId}`);
-        
-        if (response.ok) {
-            // Asset exists in database but not in this room
-            const asset = await response.json();
-            
-            // Add the asset to scanned assets with misplaced status
-            addMisplacedAsset(asset);
-            
-            showScanMessage(
-                `Asset found: ${asset.description || 'Unknown'} (${assetId}) - Not assigned to this room!`, 
-                'warning'
-            );
-        } else {
-            if (confirm(`Asset "${assetId}" not found in system. Add as unexpected?`)) {
-                addUnexpectedAsset(assetId);
-            }
-        }
-        
-        searchInput.value = '';
-
-    } catch (error) {
-        console.error('Error searching for asset:', error);
-        showScanMessage('An error occurred while searching for the asset', 'danger');
-    }
-}
-
-function addMisplacedAsset(asset) {
-    // Format the asset data to match our expected structure
-    const assetId = asset.id || asset['id:'] || asset.asset_id || '';
-    const formattedAsset = {
-        id: assetId,
-        description: asset.description || 'Unknown Asset',
-        brand: asset.brand || 'Unknown',
-        model: asset.model || 'Unknown',
-        status: 'misplaced',
-        room_id: asset.room_id || 'Unknown',
-        assignee_id: asset.assignee_id || 'Unassigned',
-        last_update: asset.last_update || new Date().toISOString(),
-        found: true,
-        actualRoom: currentRoom
-    };
-    
-    scannedAssets.push(formattedAsset);
-    updateScannedAssetsTable();
+function appendCell(row, text) {
+    const cell = document.createElement('td');
+    cell.textContent = text || '';
+    row.appendChild(cell);
+    return cell;
 }
 
 function hideElements(elementIds) {
@@ -659,10 +976,21 @@ function showElements(elementIds) {
     });
 }
 
+/**
+ * Event Listeners 
+ */
 document.addEventListener('DOMContentLoaded', function() {
+    // Set up click handlers
     const toggleButton = document.getElementById('toggleRoomAudit');
     if (toggleButton) {
         toggleButton.addEventListener('click', toggleRoomAudit);
+        
+        // Prevent the button from being submitted by Enter key
+        toggleButton.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
+        });
     }
     
     const searchButton = document.getElementById('manualSearchButton');
@@ -675,9 +1003,19 @@ document.addEventListener('DOMContentLoaded', function() {
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 manualSearchAsset();
+                e.preventDefault(); // Prevent form submission
             }
         });
     }
     
+    // Prevent Enter key from stopping the scan
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && isRoomAuditActive) {
+            // Prevent default action of Enter key when scanning is active
+            e.preventDefault();
+        }
+    }, true); // Use capturing phase to catch the event early
+    
+    // Set default scanning method
     setAuditMethod('manual');
 });
