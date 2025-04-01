@@ -50,7 +50,7 @@ def init():
             new_notes = None  # Use None instead of null
 
             # Assuming Asset constructor uses named arguments (make sure to match this to your Asset class)
-            n_a = Asset(
+            n_a = add_asset(
                 id=new_id,
                 description=new_item,
                 model=new_model,
@@ -60,8 +60,8 @@ def init():
                 last_located=new_ll,
                 assignee_id=new_assignee,
                 last_update=new_last,
-                notes=new_notes,
-                status=new_status
+                notes=new_notes
+                
                 
             )
 
