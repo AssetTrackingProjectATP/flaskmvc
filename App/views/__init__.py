@@ -7,6 +7,7 @@ from .audit import audit_views
 from .admin import setup_admin
 from .inventory import inventory_views
 from .discrepancy import discrepancy_views
+from .settings import settings_views
 
 
 

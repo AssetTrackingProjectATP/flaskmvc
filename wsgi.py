@@ -31,7 +31,43 @@ def init():
     #Sample data for assets
     
     #Initialize csv 
-    
+    with open('CSVsample.csv') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            # Strip any extra spaces from the row keys
+            #row = {key.strip(): value for key, value in row.items()}
+
+            new_item = row['Item']
+            new_id = row['Asset Tag']
+            new_model = row["Model"]
+            new_brand = row["Brand"]
+            new_sn = row["Serial Number"]
+            new_room = row["Location"]
+            new_ll = new_room
+            new_status = row["Condition"]
+            new_assignee = row["Assignee"]
+            new_last = db.func.current_timestamp()
+            new_notes = None  # Use None instead of null
+
+            # Assuming Asset constructor uses named arguments (make sure to match this to your Asset class)
+            n_a = Asset(
+                asset_id=new_id,
+                description=new_item,
+                model=new_model,
+                brand=new_brand,
+                serial_number=new_sn,
+                room_id=new_room,
+                last_located=new_ll,
+                assignee_id=new_assignee,
+                last_update=new_last,
+                notes=new_notes,
+                status=new_status
+                
+            )
+
+            db.session.add(n_a)
+            db.session.commit()
+        
 
 '''
 User Commands
