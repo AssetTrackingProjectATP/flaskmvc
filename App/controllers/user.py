@@ -1,5 +1,6 @@
 from App.models import User
 from App.database import db
+from werkzeug.security import generate_password_hash
 
 def create_user(email, username, password):
     newuser = User(email=email, username=username, password=password)
@@ -26,11 +27,13 @@ def get_all_users_json():
     users = [user.get_json() for user in users]
     return users
 
-def update_user(id, email, username):
+def update_user(id, email, username, new_password=None):
     user = get_user(id)
     if user:
         user.email = email
         user.username = username
+        if new_password:
+            user.set_password(new_password)
         db.session.add(user)
         return db.session.commit()
     return None
