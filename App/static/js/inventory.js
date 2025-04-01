@@ -35,21 +35,27 @@ function displayAssets(assets) {
         // Determine asset ID
         const assetId = asset.id || asset['id:'] || '';
         
+        // Get room name instead of ID
+        const roomName = asset.room_name || `Room Id: ${asset.room_id}` || 'N/A';
+        
+        // Get assignee name instead of ID
+        const assigneeName = asset.assignee_name || 'Unassigned';
+        
         // Create row cells
         row.innerHTML = `
             <td>${description}</td>
             <td>${assetId}</td>
             <td>${asset.model || 'N/A'}</td>
-            <td>${asset.room_id || 'N/A'}</td>
+            <td>${roomName}</td>
             <td>
                 <span class="status-dot status-${
                     asset.status === 'Good' ? 'good' : 
-                    asset.status === 'Misplaced' ? 'misplaced' : 
+                    asset.status === 'Misplaced' ? 'warning' : 
                     'poor'
                 }"></span>
                 ${asset.status || 'Unknown'}
             </td>
-            <td>${asset.assignee_id || 'Unassigned'}</td>
+            <td>${assigneeName}</td>
             <td>${formatDate(asset.last_update)}</td>
             <td>
                 <a href="/asset/${assetId}" class="btn btn-sm btn-outline-primary">

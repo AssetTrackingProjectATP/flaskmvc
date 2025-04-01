@@ -15,7 +15,31 @@ def inventory_page():
 @inventory_views.route('/api/assets', methods=['GET'])
 @jwt_required()
 def get_assets():
+    # Get all assets
     assets = get_all_assets_json()
+    
+    # Enrich each asset with room name and assignee name
+    for asset in assets:
+        # Add room name
+        if asset.get('room_id'):
+            room = get_room(asset['room_id'])
+            if room:
+                asset['room_name'] = room.room_name
+            else:
+                asset['room_name'] = f"Room {asset['room_id']}"
+        else:
+            asset['room_name'] = "Unknown"
+            
+        # Add assignee name
+        if asset.get('assignee_id'):
+            assignee = get_assignee_by_id(asset['assignee_id'])
+            if assignee:
+                asset['assignee_name'] = f"{assignee.fname} {assignee.lname}"
+            else:
+                asset['assignee_name'] = f"Assignee {asset['assignee_id']}"
+        else:
+            asset['assignee_name'] = "Unassigned"
+    
     return jsonify(assets)
 
 @inventory_views.route('/add-asset', methods=['GET'])

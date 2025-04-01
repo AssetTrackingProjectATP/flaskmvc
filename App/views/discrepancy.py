@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request
 from flask_jwt_extended import jwt_required, current_user
+from App.database import db
 from App.controllers.asset import (
     get_asset,
     get_assets_by_status, 
@@ -123,17 +124,17 @@ def relocate_asset(asset_id):
     
     # Store old status and location for changelog
     old_status = asset.status
-    old_location = asset.last_located
+    old_location = asset.room_id
     
     # Update both room_id AND last_located in one operation
     asset.last_located = new_room_id
-    asset.room_id = new_room_id  # This is the key change - directly update room_id
+    asset.room_id = new_room_id
     asset.status = "Good"
     asset.last_update = datetime.now()
     
     try:
         # Create a single scan event using the existing controller
-        notes = f"Asset relocated and reassigned to room {new_room_id}. Previous status: {old_status}, previous location: {old_location}."
+        notes = f"Asset relocated and reassigned to room {get_room(new_room_id).room_name}. Previous status: {old_status}, previous location: {get_room(old_location).room_name}."
         
         add_scan_event(
             asset_id=asset_id,
@@ -144,7 +145,7 @@ def relocate_asset(asset_id):
         )
         
         # # Commit all changes at once
-        # db.session.commit()
+        db.session.commit()
         
         # Get room name for the response message
         room = get_room(new_room_id)
@@ -156,5 +157,5 @@ def relocate_asset(asset_id):
             'asset': asset.get_json()
         })
     except Exception as e:
-        # db.session.rollback()
+        db.session.rollback()
         return jsonify({'success': False, 'message': f'Error updating asset: {str(e)}'}), 500
