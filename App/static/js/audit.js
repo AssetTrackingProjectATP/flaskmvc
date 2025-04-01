@@ -374,15 +374,24 @@ function updateScanningInterface() {
     }
 }
 
+// Function to toggle room audit
 function toggleRoomAudit() {
     // Toggle room audit state
     if (!isRoomAuditActive) {
         startRoomAudit();
     } else {
-        // Confirm before stopping if this was a user action
-        if (confirm("Are you sure you want to stop the audit? Unscanned assets will be marked as missing.")) {
-            stopRoomAudit();
+        // Show confirmation dialog with options
+        if (confirm("Do you want to stop the audit? Unscanned assets will be marked as missing. Click Cancel to use the Cancel Audit option instead.")) {
+            stopRoomAudit(true); // Stop with marking missing
         }
+    }
+}
+
+// New function to cancel room audit
+function cancelRoomAudit() {
+    if (confirm("Are you sure you want to cancel the audit? No changes will be made to unscanned assets.")) {
+        stopRoomAudit(false); // Stop without marking missing
+        showScanMessage('Audit cancelled. No assets were marked as missing.', 'info');
     }
 }
 
@@ -397,10 +406,17 @@ function startRoomAudit() {
     
     isRoomAuditActive = true;
     
+    // Update Stop button
     const toggleButton = document.getElementById('toggleRoomAudit');
     toggleButton.textContent = 'Stop Room Audit';
     toggleButton.classList.remove('btn-success');
     toggleButton.classList.add('btn-danger');
+    
+    // Show Cancel button
+    const cancelButton = document.getElementById('cancelRoomAudit');
+    if (cancelButton) {
+        cancelButton.style.display = 'block';
+    }
     
     // Disable room selection while audit is active
     document.getElementById('buildingSelect').disabled = true;
@@ -421,7 +437,7 @@ function startRoomAudit() {
     showScanMessage(`Audit started for room ${currentRoom}`, 'success');
 }
 
-function stopRoomAudit() {
+function stopRoomAudit(markMissing = true) {
     // If not active, do nothing
     if (!isRoomAuditActive) return;
     
@@ -432,10 +448,17 @@ function stopRoomAudit() {
     // Remove the Enter key prevention handler
     document.removeEventListener('keydown', preventEnterDefault, true);
     
+    // Update the toggle button
     const toggleButton = document.getElementById('toggleRoomAudit');
     toggleButton.textContent = 'Start Room Audit';
     toggleButton.classList.remove('btn-danger');
     toggleButton.classList.add('btn-success');
+    
+    // Hide Cancel button
+    const cancelButton = document.getElementById('cancelRoomAudit');
+    if (cancelButton) {
+        cancelButton.style.display = 'none';
+    }
     
     // Re-enable room selection
     document.getElementById('buildingSelect').disabled = false;
@@ -444,12 +467,14 @@ function stopRoomAudit() {
     
     updateScanningInterface();
     
-    // Mark unscanned assets as missing
-    markUnscannedAssetsMissing();
-    
-    showScanMessage('Audit completed. Unscanned assets marked as missing.', 'info');
+    // Mark unscanned assets as missing if requested
+    if (markMissing) {
+        markUnscannedAssetsMissing();
+        showScanMessage('Audit completed. Unscanned assets marked as missing.', 'info');
+    }
 }
 
+// The rest of your existing audit.js file remains unchanged
 // Function to prevent Enter key default actions except in search input
 function preventEnterDefault(e) {
     // Allow Enter in search input for manual searching
@@ -987,6 +1012,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Prevent the button from being submitted by Enter key
         toggleButton.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
+        });
+    }
+    
+    // Set up Cancel button handler
+    const cancelButton = document.getElementById('cancelRoomAudit');
+    if (cancelButton) {
+        cancelButton.addEventListener('click', cancelRoomAudit);
+        
+        // Prevent the button from being submitted by Enter key
+        cancelButton.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
             }
