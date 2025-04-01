@@ -352,8 +352,9 @@ class AssetIntegrationTests(unittest.TestCase):
     
     # Act - Call the function under test
         new_asset = add_asset(asset_id, description, model, brand, serial_number, 
-                         room_id, last_located, assignee_id, last_update, 
+                         room_id, last_located, assignee_id, last_update,
                          notes)
+
     
     # Assert - Verify the asset was created correctly
         self.assertIsNotNone(new_asset)
@@ -380,12 +381,15 @@ class AssetIntegrationTests(unittest.TestCase):
     # Arrange - Create an asset first
         asset_id = "A002"
         add_asset(asset_id, "First Asset", "Model1", "Brand1", "SN11111", 
+
              "R3", "R3", 1, datetime.now(), "First asset notes")
+
     
     # Act - Try to create another asset with the same ID
         duplicate_asset = add_asset(asset_id, "Second Asset", "Model2", "Brand2", 
                                "SN22222", "R4", "R4", 2, datetime.now(), 
                                "Second asset notes")
+
     
     # Assert - Function should return None for duplicate ID
         self.assertIsNone(duplicate_asset)
@@ -444,11 +448,13 @@ class AssetIntegrationTests(unittest.TestCase):
         last_update = datetime.now()
         notes = "Testing get_asset method"
         status = "Good"
+
         
         # Add the asset to the database
         add_asset(asset_id, description, model, brand, serial_number,
                 room_id, last_located, assignee_id, last_update,
                 notes)
+
         
         # Act - Call the function under test
         retrieved_asset = get_asset(asset_id)
@@ -465,6 +471,7 @@ class AssetIntegrationTests(unittest.TestCase):
         self.assertEqual(retrieved_asset.assignee_id, assignee_id)
         self.assertEqual(retrieved_asset.notes, notes)
         # self.assertEqual(retrieved_asset.status, status)
+
         
     def test_get_asset_nonexistent_id(self):
         """Test retrieving an asset with an ID that doesn't exist."""
@@ -484,6 +491,7 @@ class AssetIntegrationTests(unittest.TestCase):
         add_asset(asset_id, "Temporary Asset", "TempModel", "TempBrand", 
                 "SNTEMP", "R4", "R4", 1, datetime.now(), 
                 "This asset will be deleted")
+
         
         # Verify it was added
         self.assertIsNotNone(get_asset(asset_id))
@@ -507,7 +515,9 @@ class AssetIntegrationTests(unittest.TestCase):
         
         add_asset(original_id, "Case Sensitive Test", "TestModel", "TestBrand", 
                 "SNTEST", "R4", "R4", 1, datetime.now(), 
+
                 "Testing ID case sensitivity")
+
         
         # Act - Try to retrieve with different case
         lower_case_id = original_id.lower()
@@ -544,9 +554,11 @@ class AssetIntegrationTests(unittest.TestCase):
         # Create multiple test assets
         test_assets = [
             # id, description, model, brand, serial_number, room_id, last_located, assignee_id, last_update, notes, status
+
             ("A201", "Desktop PC", "OptiPlex 7050", "Dell", "SN10001", "R1", "R1", 1, datetime.now(), "Test asset 1"),
             ("A202", "Monitor", "P2419H", "Dell", "SN10002", "R1", "R1", 1, datetime.now(), "Test asset 2"),
             ("A203", "Printer", "LaserJet Pro", "HP", "SN10003", "R2", "R2", 2, datetime.now(), "Test asset 3")
+
         ]
         
         # Add each test asset to the database
