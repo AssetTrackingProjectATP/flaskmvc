@@ -36,7 +36,7 @@ function displayAssets(assets) {
         const assetId = asset.id || asset['id:'] || '';
         
         // Get room name instead of ID
-        const roomName = asset.room_name || `Room ${asset.room_id}` || 'N/A';
+        const roomName = asset.room_name || `Room Id: ${asset.room_id}` || 'N/A';
         
         // Get assignee name instead of ID
         const assigneeName = asset.assignee_name || 'Unassigned';
