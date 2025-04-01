@@ -31,7 +31,7 @@ def init():
     #Sample data for assets
     
     #Initialize csv 
-    with open('CSVsample.csv') as file:
+    with open('CSVsample.csv', encoding='utf-8-sig') as file:
         reader = csv.DictReader(file)
         for row in reader:
             # Strip any extra spaces from the row keys
@@ -51,7 +51,7 @@ def init():
 
             # Assuming Asset constructor uses named arguments (make sure to match this to your Asset class)
             n_a = Asset(
-                asset_id=new_id,
+                id=new_id,
                 description=new_item,
                 model=new_model,
                 brand=new_brand,
