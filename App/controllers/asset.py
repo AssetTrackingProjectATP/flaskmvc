@@ -66,7 +66,7 @@ def set_status(id):
     
     
 def upload_csv(file_path):
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding='utf-8-sig') as file:
      reader = csv.DictReader(file)
      for row in reader:
      
@@ -87,7 +87,7 @@ def upload_csv(file_path):
 
             # Create a new Asset instance using the gathered data
         n_a = Asset(
-            asset_id=new_id,
+            id=new_id,
             description=new_item,
             model=new_model,
             brand=new_brand,
