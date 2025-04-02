@@ -6,7 +6,7 @@ class Building(db.Model):
     
     def __init__ (self, building_id, building_name):
         self.building_id = building_id
-        self. building_name = building_name
+        self.building_name = building_name
         
     def get_json(self):
         return{
