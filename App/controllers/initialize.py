@@ -18,8 +18,8 @@ def initialize():
     create_user('bob@gmail.com','bob marley', 'bobpass')
     
 
-    add_asset( 1, "Laptop", "ThinkPad X1", "Lenovo", "SN12345", 1, 1, 1, datetime.now(), "Good condition")
-    add_asset(2, "Projector", "Epson X300", "Epson", "SN67890", 2, 2, 2, datetime.now(), "Mounted on ceiling")
+    # add_asset( 1, "Laptop", "ThinkPad X1", "Lenovo", "SN12345", 1, 1, 1, datetime.now(), "Good condition")
+    # add_asset(2, "Projector", "Epson X300", "Epson", "SN67890", 2, 2, 2, datetime.now(), "Mounted on ceiling")
 
     print("Assets created.")
 
