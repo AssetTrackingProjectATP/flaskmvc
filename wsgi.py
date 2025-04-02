@@ -32,6 +32,11 @@ def init():
     
     #Initialize csv 
     
+       
+    filepath = 'CSVsample.csv' 
+    upload_csv(filepath)
+    
+        
 
 '''
 User Commands
