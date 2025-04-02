@@ -65,28 +65,44 @@ def set_status(id):
     return new_asset
     
     
-def upload_csv(self):
-    with open('CSVsample.csv') as file:
+def upload_csv(file_path):
+    with open(file_path, 'r') as file:
      reader = csv.DictReader(file)
      for row in reader:
-         
+     
+        row = {key.strip(): value for key, value in row.items()}
+            
+            # Access and assign values to variables
+        new_item = row['Item']
+        new_id = row['Asset Tag']
+        new_model = row["Model"]
+        new_brand = row["Brand"]
+        new_sn = row["Serial Number"]
+        new_room = row["Location"]
+        new_ll = new_room
+        new_status = row["Condition"]
+        new_assignee = row["Assignee"]
+        new_last = db.func.current_timestamp()  # Assuming you are using SQLAlchemy
+        new_notes = None  # Replace `null` with `None` in Python
 
-      new_asset = Asset(description=row['item'],
-                            id=row['Asset Tag'],
-                            model= row['Model'],
-                            brand=row['Brand'],
-                            serial_number=row['Serial Number'],
-                            room_id=row['Location'],
-                            last_located=row['Location'],
-                            status=row['Condition'],
-                            assignee_id=row['Assignee'],
-                            last_update=db.func.current_timestamp(),
-                            notes=null
-                            
-      )
-    
-     db.session.add(new_asset)
-     db.session.commit()
+            # Create a new Asset instance using the gathered data
+        n_a = Asset(
+            asset_id=new_id,
+            description=new_item,
+            model=new_model,
+            brand=new_brand,
+            serial_number=new_sn,
+            room_id=new_room,
+            last_located=new_ll,
+            status=new_status,
+            assignee_id=new_assignee,
+            last_update=new_last,
+            notes=new_notes
+            )
+
+            # Add the new asset to the database session and commit
+        db.session.add(n_a)
+        db.session.commit()
         
 def delete_asset(id):
     asset = get_asset(id)
