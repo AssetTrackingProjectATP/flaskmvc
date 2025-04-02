@@ -361,6 +361,14 @@ async function updateUserAccount() {
         }
     }
     
+    // Debug log to see data being sent
+    console.log("Sending data:", {
+        username: username,
+        email: email,
+        current_password: currentPassword,
+        new_password: newPassword
+    });
+    
     try {
         const response = await fetch('/api/user/update', {
             method: 'POST',
@@ -375,7 +383,20 @@ async function updateUserAccount() {
             })
         });
         
-        const result = await response.json();
+        // Log the raw response for debugging
+        const responseText = await response.text();
+        console.log("Raw server response:", responseText);
+        
+        let result;
+        try {
+            // Try to parse the response as JSON
+            result = JSON.parse(responseText);
+        } catch (e) {
+            // If response is not valid JSON
+            showStatusMessage('Error', 'The server returned an invalid response. Please check the console for details.', 'danger');
+            console.error('Failed to parse server response as JSON:', e);
+            return;
+        }
         
         if (response.ok) {
             showStatusMessage('Success', 'Account settings updated successfully.', 'success');

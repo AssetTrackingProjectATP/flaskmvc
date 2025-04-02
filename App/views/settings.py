@@ -31,42 +31,54 @@ def settings_page():
 @settings_views.route('/api/user/update', methods=['POST'])
 @jwt_required()
 def update_user_settings():
-    data = request.json
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        username = data.get('username')
+        email = data.get('email')
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        # Basic validation
+        if not username or not email:
+            return jsonify({'success': False, 'message': 'Username and email are required'}), 400
+        
+        # Check if current password is provided if changing password
+        if new_password and not current_password:
+            return jsonify({'success': False, 'message': 'Current password is required to set a new password'}), 400
+        
+        # If changing password, verify current password
+        if new_password:
+            if not current_user.check_password(current_password):
+                return jsonify({'success': False, 'message': 'Current password is incorrect'}), 401
+        
+        # Add logging
+        print(f"Updating user {current_user.id} - {username} - {email}")
+        
+        try:
+            # Call controller to update user
+            if new_password:
+                # Update with new password
+                result = update_user(current_user.id, email, username, new_password)
+            else:
+                # Update without changing password
+                result = update_user(current_user.id, email, username)
+            
+            if result is not None:  # Check for None explicitly, as 0 could be a valid result
+                return jsonify({'success': True, 'message': 'User updated successfully'})
+            else:
+                return jsonify({'success': False, 'message': 'Failed to update user. User not found or database error.'}), 500
+        except Exception as e:
+            print(f"Error updating user: {str(e)}")
+            return jsonify({'success': False, 'message': f'Error updating user: {str(e)}'}), 500
+            
+    except Exception as e:
+        print(f"Exception in user update endpoint: {str(e)}")
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
     
-    if not data:
-        return jsonify({'success': False, 'message': 'No data provided'}), 400
-    
-    username = data.get('username')
-    email = data.get('email')
-    current_password = data.get('current_password')
-    new_password = data.get('new_password')
-    
-    # Basic validation
-    if not username or not email:
-        return jsonify({'success': False, 'message': 'Username and email are required'}), 400
-    
-    # Check if current password is provided if changing password
-    if new_password and not current_password:
-        return jsonify({'success': False, 'message': 'Current password is required to set a new password'}), 400
-    
-    # If changing password, verify current password
-    if new_password:
-        if not current_user.check_password(current_password):
-            return jsonify({'success': False, 'message': 'Current password is incorrect'}), 401
-    
-    # Call controller to update user
-    if new_password:
-        # Update with new password
-        result = update_user(current_user.id, email, username, new_password)
-    else:
-        # Update without changing password
-        result = update_user(current_user.id, email, username)
-    
-    if result is not None:  # Check for None explicitly, as 0 could be a valid result
-        return jsonify({'success': True, 'message': 'User updated successfully'})
-    else:
-        return jsonify({'success': False, 'message': 'Failed to update user'}), 500
-
 # CSV upload endpoints
 @settings_views.route('/api/upload/assets-csv', methods=['POST'])
 @jwt_required()

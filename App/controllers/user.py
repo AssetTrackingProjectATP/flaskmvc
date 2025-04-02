@@ -27,16 +27,40 @@ def get_all_users_json():
     users = [user.get_json() for user in users]
     return users
 
+# Replace your update_user function in App/controllers/user.py with this fixed version
+
 def update_user(id, email, username, new_password=None):
-    user = get_user(id)
-    if user:
+    try:
+        # Convert id to integer if it's a string
+        if isinstance(id, str) and id.isdigit():
+            id = int(id)
+            
+        # Try to get the user directly by id
+        user = User.query.get(id)
+        
+        # If that fails, try filter_by
+        if not user:
+            user = User.query.filter_by(id=id).first()
+            
+        if not user:
+            return None
+            
+        # Update user information
         user.email = email
         user.username = username
+        
+        # Update password if provided
         if new_password:
             user.set_password(new_password)
+            
+        # Add the user and commit the changes
         db.session.add(user)
-        return db.session.commit()
-    return None
+        db.session.commit()
+        return True
+    except Exception as e:
+        # Rollback the session
+        db.session.rollback()
+        return None
 
 def delete_user(id):
     user = get_user(id)
