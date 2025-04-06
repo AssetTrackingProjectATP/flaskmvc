@@ -332,7 +332,54 @@ def update_building_endpoint(building_id):
         print(f"Exception in update_building_endpoint: {str(e)}")
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500@settings_views.route('/api/building/<building_id>/update', methods=['POST'])
+@jwt_required()
+def update_building_endpoint(building_id):
+    try:
+        print(f"Building update request for building_id: {building_id}")
+        
+        data = request.json
+        print(f"Request data: {data}")
+        
+        if not data or 'building_name' not in data:
+            print("Error: Building name is required")
+            return jsonify({'success': False, 'message': 'Building name is required'}), 400
+        
+        building_name = data['building_name'].strip()
+        
+        if not building_name:
+            print("Error: Building name cannot be empty")
+            return jsonify({'success': False, 'message': 'Building name cannot be empty'}), 400
+        
+        # Check if building exists first
+        building = get_building(building_id)
+        if not building:
+            print(f"Error: Building with ID {building_id} not found")
+            return jsonify({'success': False, 'message': f'Building with ID {building_id} not found'}), 404
+        
+        # If building exists, update it
+        result = edit_building(building_id, building_name)
+        
+        if result is not None:
+            print(f"Building updated successfully: {building_id} - {building_name}")
+            return jsonify({
+                'success': True,
+                'message': 'Building updated successfully',
+                'building': {
+                    'building_id': building_id,
+                    'building_name': building_name
+                }
+            })
+        else:
+            print(f"Failed to update building: {building_id}")
+            return jsonify({'success': False, 'message': 'Failed to update building. Database error.'}), 500
+    
+    except Exception as e:
+        print(f"Exception in update_building_endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+    
     
 @settings_views.route('/api/building/<building_id>/delete', methods=['POST'])
 @jwt_required()
@@ -400,27 +447,52 @@ def add_floor():
 @settings_views.route('/api/floor/<floor_id>/update', methods=['POST'])
 @jwt_required()
 def update_floor_endpoint(floor_id):
-    data = request.json
+    try:
+        print(f"Floor update request for floor_id: {floor_id}")
+        
+        data = request.json
+        print(f"Request data: {data}")
+        
+        if not data or 'building_id' not in data or 'floor_name' not in data:
+            print("Error: Building ID and floor name are required")
+            return jsonify({'success': False, 'message': 'Building ID and floor name are required'}), 400
+        
+        building_id = data['building_id']
+        floor_name = data['floor_name'].strip()
+        
+        if not floor_name:
+            print("Error: Floor name cannot be empty")
+            return jsonify({'success': False, 'message': 'Floor name cannot be empty'}), 400
+        
+        # Check if floor exists first
+        floor = get_floor(floor_id)
+        if not floor:
+            print(f"Error: Floor with ID {floor_id} not found")
+            return jsonify({'success': False, 'message': f'Floor with ID {floor_id} not found'}), 404
+        
+        # If floor exists, update it
+        result = update_floor(floor_id, building_id, floor_name)
+        
+        if result is not None:
+            print(f"Floor updated successfully: {floor_id} - {floor_name}")
+            return jsonify({
+                'success': True,
+                'message': 'Floor updated successfully',
+                'floor': {
+                    'floor_id': floor_id,
+                    'building_id': building_id,
+                    'floor_name': floor_name
+                }
+            })
+        else:
+            print(f"Failed to update floor: {floor_id}")
+            return jsonify({'success': False, 'message': 'Failed to update floor. Database error.'}), 500
     
-    if not data or 'building_id' not in data or 'floor_name' not in data:
-        return jsonify({'success': False, 'message': 'Building ID and floor name are required'}), 400
-    
-    building_id = data['building_id']
-    floor_name = data['floor_name'].strip()
-    
-    if not floor_name:
-        return jsonify({'success': False, 'message': 'Floor name cannot be empty'}), 400
-    
-    result = update_floor(floor_id, building_id, floor_name)
-    
-    if result is not None:
-        return jsonify({
-            'success': True,
-            'message': 'Floor updated successfully'
-        })
-    else:
-        return jsonify({'success': False, 'message': 'Failed to update floor'}), 500
-
+    except Exception as e:
+        print(f"Exception in update_floor_endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 @settings_views.route('/api/floor/<floor_id>/delete', methods=['POST'])
 @jwt_required()
 def delete_floor_endpoint(floor_id):

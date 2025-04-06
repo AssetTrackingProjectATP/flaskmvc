@@ -943,25 +943,42 @@ async function saveBuilding() {
     }
 }
 
+// Replace or update these functions in App/static/js/settings.js
+
 function editBuilding(buildingId, buildingName) {
-    // This would normally open the edit modal
-    // For simplicity, we'll just use the same modal as adding
+    console.log(`Editing building: ${buildingId} - ${buildingName}`);
+    
+    // Set up the modal for editing
     document.getElementById('buildingName').value = buildingName;
     document.getElementById('addBuildingModalLabel').textContent = 'Edit Building';
+    
+    // Store the building ID in a data attribute for reference
+    const modal = document.getElementById('addBuildingModal');
+    modal.dataset.buildingId = buildingId;
+    modal.dataset.mode = 'edit';
     
     // Change save button to update the building
     const saveBtn = document.getElementById('saveBuildingBtn');
     saveBtn.textContent = 'Update Building';
+    
+    // Important: Update the onclick handler to ensure we're using the right mode
     saveBtn.onclick = function() {
-        updateBuilding(buildingId);
+        // Check the mode to make sure we're updating, not creating
+        if (modal.dataset.mode === 'edit') {
+            updateBuilding(buildingId);
+        } else {
+            console.error('Modal in wrong mode. Expected "edit", got:', modal.dataset.mode);
+        }
     };
     
     // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById('addBuildingModal'));
-    modal.show();
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
 }
 
 async function updateBuilding(buildingId) {
+    console.log(`Updating building with ID: ${buildingId}`);
+    
     const buildingName = document.getElementById('buildingName').value.trim();
     
     if (!buildingName) {
@@ -970,7 +987,106 @@ async function updateBuilding(buildingId) {
     }
     
     try {
+        console.log(`Sending update request for building ${buildingId} with new name: ${buildingName}`);
+        
         const response = await fetch(`/api/building/${buildingId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                building_name: buildingName
+            })
+        });
+        
+        // Get the response as text first for debugging
+        const responseText = await response.text();
+        console.log(`Raw response from server: ${responseText}`);
+        
+        // Parse the response text as JSON
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (jsonError) {
+            console.error('Error parsing response as JSON:', jsonError);
+            showStatusMessage(
+                'Error', 
+                'Invalid response from server. See console for details.', 
+                'danger'
+            );
+            return;
+        }
+        
+        if (response.ok) {
+            // Close the modal
+            const modal = document.getElementById('addBuildingModal');
+            bootstrap.Modal.getInstance(modal).hide();
+            
+            // Reset the modal for future use
+            document.getElementById('buildingName').value = '';
+            document.getElementById('addBuildingModalLabel').textContent = 'Add New Building';
+            document.getElementById('saveBuildingBtn').textContent = 'Save Building';
+            
+            // Clear any lingering data attributes
+            delete modal.dataset.buildingId;
+            delete modal.dataset.mode;
+            
+            // Restore the original save function
+            document.getElementById('saveBuildingBtn').onclick = saveBuilding;
+            
+            // Show success message
+            showStatusMessage(
+                'Success', 
+                'Building updated successfully.', 
+                'success'
+            );
+            
+            // Reload buildings and update selects
+            loadBuildings();
+            populateBuildingSelect('buildingSelect');
+            populateBuildingSelect('floorBuildingSelect');
+        } else {
+            showStatusMessage(
+                'Error', 
+                result.message || 'Failed to update building.', 
+                'danger'
+            );
+        }
+    } catch (error) {
+        console.error('Error updating building:', error);
+        showStatusMessage(
+            'Error', 
+            'An error occurred while updating the building.', 
+            'danger'
+        );
+    }
+}
+
+// Update saveBuilding function to preserve mode awareness
+function saveBuilding() {
+    const modal = document.getElementById('addBuildingModal');
+    
+    // Check if we're in edit mode - if so, we should not be here!
+    if (modal.dataset.mode === 'edit') {
+        console.error('saveBuilding called while in edit mode!');
+        showStatusMessage('Error', 'Internal error: wrong operation mode. Please try again.', 'danger');
+        return;
+    }
+    
+    const buildingName = document.getElementById('buildingName').value.trim();
+    
+    if (!buildingName) {
+        showStatusMessage('Error', 'Building name is required.', 'danger');
+        return;
+    }
+    
+    // Proceed with the original save building logic
+    saveBuildingToServer(buildingName);
+}
+
+async function saveBuildingToServer(buildingName) {
+    try {
+        const response = await fetch('/api/building/add', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -985,26 +1101,44 @@ async function updateBuilding(buildingId) {
         if (response.ok) {
             // Close the modal
             bootstrap.Modal.getInstance(document.getElementById('addBuildingModal')).hide();
-            // Reset the modal for adding
+            // Clear the form
             document.getElementById('buildingName').value = '';
-            document.getElementById('addBuildingModalLabel').textContent = 'Add New Building';
-            document.getElementById('saveBuildingBtn').textContent = 'Save Building';
-            document.getElementById('saveBuildingBtn').onclick = saveBuilding;
             // Show success message
-            showStatusMessage('Success', 'Building updated successfully.', 'success');
+            showStatusMessage('Success', 'Building added successfully.', 'success');
             // Reload buildings
             loadBuildings();
             // Update building selects
             populateBuildingSelect('buildingSelect');
             populateBuildingSelect('floorBuildingSelect');
         } else {
-            showStatusMessage('Error', result.message || 'Failed to update building.', 'danger');
+            showStatusMessage('Error', result.message || 'Failed to add building.', 'danger');
         }
     } catch (error) {
-        console.error('Error updating building:', error);
-        showStatusMessage('Error', 'An error occurred while updating the building.', 'danger');
+        console.error('Error adding building:', error);
+        showStatusMessage('Error', 'An error occurred while adding the building.', 'danger');
     }
 }
+
+// Add initialization code to ensure modal is properly reset when opened for adding
+document.addEventListener('DOMContentLoaded', function() {
+    // When the Add Building button is clicked, ensure we're in "add" mode
+    document.querySelectorAll('[data-bs-target="#addBuildingModal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const modal = document.getElementById('addBuildingModal');
+            modal.dataset.mode = 'add';
+            delete modal.dataset.buildingId;
+            
+            // Reset form and title
+            document.getElementById('buildingName').value = '';
+            document.getElementById('addBuildingModalLabel').textContent = 'Add New Building';
+            
+            // Ensure save button uses the right function
+            const saveBtn = document.getElementById('saveBuildingBtn');
+            saveBtn.textContent = 'Save Building';
+            saveBtn.onclick = saveBuilding;
+        });
+    });
+});
 
 async function deleteBuilding(buildingId, buildingName) {
     if (!confirm(`Are you sure you want to delete building "${buildingName}"? This will also delete all associated floors and rooms.`)) {
@@ -1033,3 +1167,4 @@ async function deleteBuilding(buildingId, buildingName) {
         showStatusMessage('Error', 'An error occurred while deleting the building.', 'danger');
     }
 }
+
