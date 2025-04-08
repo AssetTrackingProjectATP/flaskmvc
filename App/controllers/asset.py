@@ -1,12 +1,14 @@
 from datetime import datetime
 from App.controllers.room import get_room
-from App.models import Asset 
+from App.models import Asset, Room 
 import os, csv
 from App.models.asset import *
 from App.controllers.assignee import *
 from App.controllers.scanevent import add_scan_event
 from flask_jwt_extended import current_user
 from App.database import db 
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import IntegrityError
 
 def get_asset(id):
     return Asset.query.filter_by(id=id).first()
@@ -82,26 +84,48 @@ def upload_csv(file_path):
         new_assignee = row["Assignee"]
         new_last = db.func.current_timestamp()  # Assuming you are using SQLAlchemy
         new_notes = None  # Replace `null` with `None` in Python
-
-            # Create a new Asset instance using the gathered data
-        n_a = Asset(
-            id=new_id,
-            description=new_item,
-            model=new_model,
-            brand=new_brand,
-            serial_number=new_sn,
-            room_id=new_room,
-            last_located=new_ll,
-            status=new_status,
-            assignee_id=new_assignee,
-            last_update=new_last,
-            notes=new_notes
-            )
-
-            # Add the new asset to the database session and commit
-        db.session.add(n_a)
-        db.session.commit()
         
+        existing_room = Room.query.filter_by(room_id=new_room).first()
+        if existing_room is None:
+           # new_room  = '0'
+            new_status = "Unassigned"
+        else:
+            new_room = new_room
+            
+        
+        existing_asset = Asset.query.filter_by(id=new_id).first()
+
+        if existing_asset:
+            print("Asset with this ID already exists. You may want to update it instead.")
+        else:
+            try:
+                
+                # Create a new Asset instance using the gathered data
+                n_a = Asset(
+                id=new_id,
+                description=new_item,
+                model=new_model,
+                brand=new_brand,
+                serial_number=new_sn,
+                room_id=new_room,
+                last_located=new_ll,
+                status=new_status,
+                assignee_id=new_assignee,
+                last_update=new_last,
+                notes=new_notes
+                )
+
+                # Add the new asset to the database session and commit
+                db.session.add(n_a)
+                db.session.commit()
+                
+            except IntegrityError:
+                db.session.rollback()
+                print("Integrity Error: Could not insert the asset.")
+                    
+        
+            
+                
 def delete_asset(id):
     asset = get_asset(id)
     if asset:
