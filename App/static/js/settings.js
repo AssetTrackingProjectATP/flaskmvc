@@ -43,12 +43,11 @@ async function saveFloor() {
     } catch (error) {
         console.error('Error adding floor:', error);
         showStatusMessage('Error', 'An error occurred while adding the floor.', 'danger');
+        cleanupModals()
     }
 }
 
 function editFloor(floorId, floorName, buildingId) {
-    // This would normally open the edit modal
-    // For simplicity, we'll just use the same modal as adding
     document.getElementById('floorName').value = floorName;
     document.getElementById('addFloorModalLabel').textContent = 'Edit Floor';
     
@@ -56,16 +55,25 @@ function editFloor(floorId, floorName, buildingId) {
     const buildingName = document.getElementById('buildingSelect').options[document.getElementById('buildingSelect').selectedIndex].text;
     document.getElementById('modalBuildingSelect').innerHTML = `<option value="${buildingId}" selected>${buildingName}</option>`;
     
-    // Change save button to update the floor
-    const saveBtn = document.getElementById('saveFloorBtn');
-    saveBtn.textContent = 'Update Floor';
-    saveBtn.onclick = function() {
+    // Hide save button, show update button
+    document.getElementById('saveFloorBtn').style.display = 'none';
+    document.getElementById('updateFloorBtn').style.display = 'block';
+    
+    // Set up the update button click handler
+    document.getElementById('updateFloorBtn').onclick = function() {
         updateFloor(floorId, buildingId);
     };
     
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('addFloorModal'));
     modal.show();
+}
+
+function resetFloorModal() {
+    document.getElementById('floorName').value = '';
+    document.getElementById('addFloorModalLabel').textContent = 'Add New Floor';
+    document.getElementById('saveFloorBtn').style.display = 'block';
+    document.getElementById('updateFloorBtn').style.display = 'none';
 }
 
 async function updateFloor(floorId, buildingId) {
@@ -93,17 +101,18 @@ async function updateFloor(floorId, buildingId) {
         if (response.ok) {
             // Close the modal
             bootstrap.Modal.getInstance(document.getElementById('addFloorModal')).hide();
+            
             // Reset the modal for adding
-            document.getElementById('floorName').value = '';
-            document.getElementById('addFloorModalLabel').textContent = 'Add New Floor';
-            document.getElementById('saveFloorBtn').textContent = 'Save Floor';
-            document.getElementById('saveFloorBtn').onclick = saveFloor;
+            resetFloorModal();
+            
             // Show success message
             showStatusMessage('Success', 'Floor updated successfully.', 'success');
-            // Reload floors if the current building is selected
+            
+            // Reload floors
             if (document.getElementById('buildingSelect').value === buildingId) {
                 loadFloors(buildingId);
             }
+            
             // Update floor selects if needed
             if (document.getElementById('floorBuildingSelect').value === buildingId) {
                 loadFloorsForSelect(buildingId, document.getElementById('floorSelect'));
@@ -114,6 +123,7 @@ async function updateFloor(floorId, buildingId) {
     } catch (error) {
         console.error('Error updating floor:', error);
         showStatusMessage('Error', 'An error occurred while updating the floor.', 'danger');
+        cleanupModals();
     }
 }
 
@@ -147,6 +157,7 @@ async function deleteFloor(floorId, floorName) {
     } catch (error) {
         console.error('Error deleting floor:', error);
         showStatusMessage('Error', 'An error occurred while deleting the floor.', 'danger');
+        cleanupModals()
     }
 }
 
@@ -191,12 +202,11 @@ async function saveRoom() {
     } catch (error) {
         console.error('Error adding room:', error);
         showStatusMessage('Error', 'An error occurred while adding the room.', 'danger');
+        cleanupModals()
     }
 }
 
 function editRoom(roomId, roomName, floorId) {
-    // This would normally open the edit modal
-    // For simplicity, we'll just use the same modal as adding
     document.getElementById('roomName').value = roomName;
     document.getElementById('addRoomModalLabel').textContent = 'Edit Room';
     
@@ -208,16 +218,25 @@ function editRoom(roomId, roomName, floorId) {
     const floorName = document.getElementById('floorSelect').options[document.getElementById('floorSelect').selectedIndex].text;
     document.getElementById('modalFloorSelect').innerHTML = `<option value="${floorId}" selected>${floorName}</option>`;
     
-    // Change save button to update the room
-    const saveBtn = document.getElementById('saveRoomBtn');
-    saveBtn.textContent = 'Update Room';
-    saveBtn.onclick = function() {
+    // Hide save button, show update button
+    document.getElementById('saveRoomBtn').style.display = 'none';
+    document.getElementById('updateRoomBtn').style.display = 'block';
+    
+    // Set up the update button click handler
+    document.getElementById('updateRoomBtn').onclick = function() {
         updateRoom(roomId, floorId);
     };
     
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('addRoomModal'));
     modal.show();
+}
+
+function resetRoomModal() {
+    document.getElementById('roomName').value = '';
+    document.getElementById('addRoomModalLabel').textContent = 'Add New Room';
+    document.getElementById('saveRoomBtn').style.display = 'block';
+    document.getElementById('updateRoomBtn').style.display = 'none';
 }
 
 async function updateRoom(roomId, floorId) {
@@ -245,14 +264,14 @@ async function updateRoom(roomId, floorId) {
         if (response.ok) {
             // Close the modal
             bootstrap.Modal.getInstance(document.getElementById('addRoomModal')).hide();
+            
             // Reset the modal for adding
-            document.getElementById('roomName').value = '';
-            document.getElementById('addRoomModalLabel').textContent = 'Add New Room';
-            document.getElementById('saveRoomBtn').textContent = 'Save Room';
-            document.getElementById('saveRoomBtn').onclick = saveRoom;
+            resetRoomModal();
+            
             // Show success message
             showStatusMessage('Success', 'Room updated successfully.', 'success');
-            // Reload rooms if the current floor is selected
+            
+            // Reload rooms
             if (document.getElementById('floorSelect').value === floorId) {
                 loadRooms(floorId);
             }
@@ -262,6 +281,7 @@ async function updateRoom(roomId, floorId) {
     } catch (error) {
         console.error('Error updating room:', error);
         showStatusMessage('Error', 'An error occurred while updating the room.', 'danger');
+        cleanupModals();
     }
 }
 
@@ -290,6 +310,7 @@ async function deleteRoom(roomId, roomName) {
     } catch (error) {
         console.error('Error deleting room:', error);
         showStatusMessage('Error', 'An error occurred while deleting the room.', 'danger');
+        cleanupModals()
     }
 }
 
@@ -410,6 +431,7 @@ async function updateUserAccount() {
     } catch (error) {
         console.error('Error updating account:', error);
         showStatusMessage('Error', 'An error occurred while updating account settings.', 'danger');
+        cleanupModals()
     }
 }
 
@@ -518,6 +540,7 @@ async function uploadCSV(type, file) {
     } catch (error) {
         console.error(`Error uploading ${type} CSV:`, error);
         showStatusMessage('Error', `An error occurred while uploading the ${type} CSV file.`, 'danger');
+        cleanupModals()
     }
 }
 
@@ -525,7 +548,6 @@ async function uploadCSV(type, file) {
 // Location Management Functions
 // ==========================================
 function initLocationManagement() {
-    // Load buildings initially
     loadBuildings();
     
     // Setup tab change events to load appropriate data
@@ -610,6 +632,11 @@ function initLocationManagement() {
     document.getElementById('saveBuildingBtn').addEventListener('click', saveBuilding);
     document.getElementById('saveFloorBtn').addEventListener('click', saveFloor);
     document.getElementById('saveRoomBtn').addEventListener('click', saveRoom);
+    
+    // Make sure update buttons have no default handlers
+    document.getElementById('updateBuildingBtn').onclick = null;
+    document.getElementById('updateFloorBtn').onclick = null;
+    document.getElementById('updateRoomBtn').onclick = null;
 }
 
 // Load buildings function
@@ -675,6 +702,7 @@ async function loadBuildings() {
     } catch (error) {
         console.error('Error loading buildings:', error);
         buildingsTree.innerHTML = '<div class="alert alert-danger">Error loading buildings. Please try again.</div>';
+        cleanupModals()
     }
 }
 
@@ -750,6 +778,7 @@ async function loadFloors(buildingId) {
     } catch (error) {
         console.error('Error loading floors:', error);
         floorsTree.innerHTML = '<div class="alert alert-danger">Error loading floors. Please try again.</div>';
+        cleanupModals()
     }
 }
 
@@ -860,6 +889,7 @@ async function loadRooms(floorId) {
     } catch (error) {
         console.error('Error loading rooms:', error);
         roomsTree.innerHTML = '<div class="alert alert-danger">Error loading rooms. Please try again.</div>';
+        cleanupModals()
     }
 }
 
@@ -897,11 +927,13 @@ async function populateBuildingSelect(selectId) {
     } catch (error) {
         console.error('Error loading buildings for select:', error);
         selectElement.innerHTML = '<option value="">Error loading buildings</option>';
+        cleanupModals()
     }
 }
 
 // CRUD Operations for Buildings
 async function saveBuilding() {
+    console.log("saveBuilding called - should only happen for new buildings");
     const buildingName = document.getElementById('buildingName').value.trim();
     
     if (!buildingName) {
@@ -940,19 +972,24 @@ async function saveBuilding() {
     } catch (error) {
         console.error('Error adding building:', error);
         showStatusMessage('Error', 'An error occurred while adding the building.', 'danger');
+        cleanupModals()
     }
 }
 
 function editBuilding(buildingId, buildingName) {
-    // This would normally open the edit modal
-    // For simplicity, we'll just use the same modal as adding
+    console.log(`EDIT BUILDING CALLED: ID=${buildingId}, Name=${buildingName}`);
+    
+    // Set the building name in the input
     document.getElementById('buildingName').value = buildingName;
     document.getElementById('addBuildingModalLabel').textContent = 'Edit Building';
     
-    // Change save button to update the building
-    const saveBtn = document.getElementById('saveBuildingBtn');
-    saveBtn.textContent = 'Update Building';
-    saveBtn.onclick = function() {
+    // Hide save button, show update button
+    document.getElementById('saveBuildingBtn').style.display = 'none';
+    const updateBtn = document.getElementById('updateBuildingBtn');
+    updateBtn.style.display = 'block';
+    
+    // Set up the update button to call updateBuilding with the correct ID
+    updateBtn.onclick = function() {
         updateBuilding(buildingId);
     };
     
@@ -962,7 +999,9 @@ function editBuilding(buildingId, buildingName) {
 }
 
 async function updateBuilding(buildingId) {
+    console.log(`updateBuilding called with ID: ${buildingId}`);
     const buildingName = document.getElementById('buildingName').value.trim();
+    console.log(`Sending update for building ${buildingId} to name "${buildingName}"`);
     
     if (!buildingName) {
         showStatusMessage('Error', 'Building name is required.', 'danger');
@@ -985,25 +1024,36 @@ async function updateBuilding(buildingId) {
         if (response.ok) {
             // Close the modal
             bootstrap.Modal.getInstance(document.getElementById('addBuildingModal')).hide();
+            
             // Reset the modal for adding
-            document.getElementById('buildingName').value = '';
-            document.getElementById('addBuildingModalLabel').textContent = 'Add New Building';
-            document.getElementById('saveBuildingBtn').textContent = 'Save Building';
-            document.getElementById('saveBuildingBtn').onclick = saveBuilding;
+            resetBuildingModal();
+            
             // Show success message
             showStatusMessage('Success', 'Building updated successfully.', 'success');
+            
             // Reload buildings
             loadBuildings();
-            // Update building selects
-            populateBuildingSelect('buildingSelect');
-            populateBuildingSelect('floorBuildingSelect');
         } else {
             showStatusMessage('Error', result.message || 'Failed to update building.', 'danger');
         }
     } catch (error) {
         console.error('Error updating building:', error);
         showStatusMessage('Error', 'An error occurred while updating the building.', 'danger');
+        cleanupModals()
     }
+}
+
+function cleanupModals() {
+    // Remove any lingering backdrop
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) {
+        backdrop.remove();
+    }
+    
+    // Reset body classes that Bootstrap may have added
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
 }
 
 async function deleteBuilding(buildingId, buildingName) {
@@ -1029,7 +1079,17 @@ async function deleteBuilding(buildingId, buildingName) {
             showStatusMessage('Error', result.message || 'Failed to delete building.', 'danger');
         }
     } catch (error) {
-        console.error('Error deleting building:', error);
-        showStatusMessage('Error', 'An error occurred while deleting the building.', 'danger');
+        console.error('Error updating building:', error);
+        showStatusMessage('Error', 'An error occurred while removing the building.', 'danger');
+        cleanupModals(); // Add this
     }
+}
+
+function resetBuildingModal() {
+    document.getElementById('buildingName').value = '';
+    document.getElementById('addBuildingModalLabel').textContent = 'Add New Building';
+    
+    // Show save button, hide update button
+    document.getElementById('saveBuildingBtn').style.display = 'block';
+    document.getElementById('updateBuildingBtn').style.display = 'none';
 }

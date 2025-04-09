@@ -28,7 +28,13 @@ def update_floor(floor_id, building_id, floor_name):
     if not floor: return None
     floor.building_id = building_id
     floor.floor_name = floor_name
-    return db.session.commit()
+    try:
+        db.session.commit()
+        return True
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating floor: {e}")
+        return None
 
 def delete_floor(floor_id):
     floor = get_floor(floor_id)

@@ -25,9 +25,19 @@ def get_all_rooms_json():
 
 def update_room(room_id, floor_id, room_name):
     room = get_room(room_id)
-    if not room: return None
+    if not room: 
+        return None
+    
     room.floor_id = floor_id
     room.room_name = room_name
+    
+    try:
+        db.session.commit()  # ADD THIS
+        return room  # Return the room to indicate success
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating room: {e}")
+        return None
 
 def delete_room(room_id):
     room = get_room(room_id)

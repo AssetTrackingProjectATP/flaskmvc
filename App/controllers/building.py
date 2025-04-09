@@ -12,13 +12,24 @@ def get_building(building_id):
     return Building.query.get(building_id)
 
 def edit_building(building_id, building_name):
-    building = get_building(building_id)
-    if not building:
+    print(f"Starting edit_building with ID: {building_id}, Name: {building_name}")
+    
+    # Use a direct SQL UPDATE instead of ORM to avoid identity issues
+    try:
+        db.session.execute(
+            db.update(Building)
+            .where(Building.building_id == building_id)
+            .values(building_name=building_name)
+        )
+        db.session.commit()
+        # Get the updated building
+        updated_building = get_building(building_id)
+        print(f"Updated building: {updated_building.building_name}")
+        return updated_building
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating building: {e}")
         return None
-    else:
-        building.building_name = building_name
-        db.session.add(building)
-        return db.session.commit()
 
 def get_all_building_json():
     buildings = Building.query.all()
@@ -30,7 +41,7 @@ def get_all_building_json():
 def update_building(building_id, building_name):
     building = get_building(building_id)
     if not building: return None
-    building.building_name = building_id
+    building.building_name = building_name
     return db.session.commit()
 
 def delete_building(building_id):
