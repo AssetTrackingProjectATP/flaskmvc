@@ -3,6 +3,33 @@ let allDiscrepancies = [];
 let currentFilter = 'all';
 let allRooms = []; // To store available rooms for relocation
 
+function populateRoomSelect(selectElement, rooms, defaultRoomId = null, isReassignMode = false) {
+    selectElement.innerHTML = '<option value="">Select a room...</option>'; // Clear existing options
+
+    if (!rooms || rooms.length === 0) {
+        console.warn("No rooms available to populate select dropdown.");
+        selectElement.innerHTML = '<option value="">No rooms available</option>';
+        return;
+    }
+
+    rooms.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.room_id; // Ensure you use the correct property name ('room_id')
+
+        let optionText = room.room_name; // Default text
+
+        // Check if this is the default room AND we are in reassign mode
+        if (isReassignMode && defaultRoomId != null && room.room_id == defaultRoomId) {
+            optionText = `${room.room_name} (Confirm reassignment)`;
+            option.selected = true; // Ensure it's selected
+        }
+
+        option.textContent = optionText; // Set the potentially modified text
+        selectElement.appendChild(option);
+    });
+}
+
+
 // Function to load discrepancies from API
 async function loadDiscrepancies() {
     try {
@@ -104,11 +131,11 @@ function renderDiscrepancies(discrepancies) {
                 </button>
                 
                 <button class="btn btn-primary btn-sm found-relocate-btn d-flex align-items-center" 
-                        data-tooltip="Relocate to New Room"
+                        data-tooltip="Find & Move to New Location"
                         data-asset-id="${assetId}" 
                         data-asset-name="${description}">
                     <i class="bi bi-geo-alt me-1"></i> 
-                    <span class="d-none d-md-inline">Relocate</span>
+                    <span class="d-none d-md-inline">Reassign</span>
                 </button>
         
                 <!-- Dropdown for Less Common Actions -->
@@ -149,7 +176,7 @@ function renderDiscrepancies(discrepancies) {
                 </button>
                 
                 <button class="btn btn-primary btn-sm misplaced-reassign-btn d-flex align-items-center" 
-                        data-tooltip="Reassign to Current Location"
+                        data-tooltip="Update Record to Match Current Location"
                         data-asset-id="${assetId}" 
                         data-asset-name="${description}"
                         data-current-location="${asset.last_located}">
@@ -312,7 +339,7 @@ async function markAssetAsFound(assetId, assetName) {
 }
 
 // Function to handle marking an asset as found and relocated
-async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
+async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId, notes) {
     try {
         const response = await fetch(`/api/asset/${assetId}/relocate`, {
             method: 'POST',
@@ -320,7 +347,8 @@ async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                roomId: newRoomId
+                roomId: newRoomId,
+                notes: notes
             })
         });
         
@@ -347,50 +375,6 @@ async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
         showStatusMessage(
             'Error', 
             'An error occurred while trying to relocate the asset. Please try again.',
-            'danger'
-        );
-    }
-}
-
-// New function to handle automatically reassigning a misplaced asset to its current location
-async function reassignMisplacedAsset(assetId, assetName, currentLocationId) {
-    try {
-        // Confirmation message for users to understand what's happening
-        if (confirm(`Reassign ${assetName} (${assetId}) to its current location? This will update the asset's assigned room to match where it was found.`)) {
-            const response = await fetch(`/api/asset/${assetId}/relocate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    roomId: currentLocationId
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok) {
-                showStatusMessage(
-                    'Asset Reassigned', 
-                    `${assetName} (${assetId}) has been reassigned to its current location. The asset is no longer misplaced.`,
-                    'success'
-                );
-                
-                // Reload discrepancies after action
-                loadDiscrepancies();
-            } else {
-                showStatusMessage(
-                    'Error', 
-                    result.message || 'Failed to reassign asset. Please try again.',
-                    'danger'
-                );
-            }
-        }
-    } catch (error) {
-        console.error('Error reassigning misplaced asset:', error);
-        showStatusMessage(
-            'Error', 
-            'An error occurred while trying to reassign the asset. Please try again.',
             'danger'
         );
     }
@@ -426,6 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up the Relocation modal
     const relocationModal = new bootstrap.Modal(document.getElementById('relocationModal'));
+    const roomSelect = document.getElementById('roomSelect');
     let currentAssetId = null;
     let currentAssetName = null;
     
@@ -456,11 +441,33 @@ document.addEventListener('DOMContentLoaded', function() {
         // Misplaced Reassign button - automatically reassigns to current location
         if (e.target.closest('.misplaced-reassign-btn')) {
             const button = e.target.closest('.misplaced-reassign-btn');
-            const assetId = button.dataset.assetId;
-            const assetName = button.dataset.assetName;
+            currentAssetId = button.dataset.assetId;
+            currentAssetName = button.dataset.assetName;
             const currentLocation = button.dataset.currentLocation;
             
-            reassignMisplacedAsset(assetId, assetName, currentLocation);
+            // Update modal title to indicate reassignment
+            document.getElementById('relocationModalLabel').textContent = 'Reassign Asset to Current Location';
+            
+            // Update modal with asset info
+            document.querySelector('#relocationModal .asset-info').textContent = 
+                `Asset: ${currentAssetName} (${currentAssetId})`;
+                
+            // Update modal text to indicate this is a reassignment
+            document.getElementById('locationUpdateText').textContent = 
+                'The asset will be reassigned to match its current found location.';
+            
+            // Populate the room dropdown using the helper function
+            // Pass the current location ID to pre-select it and set reassign mode to true
+            populateRoomSelect(roomSelect, allRooms, currentLocation, true);
+            
+            // Update confirm button text
+            document.getElementById('confirmRelocationBtn').textContent = 'Confirm Reassignment';
+            
+            // Clear any previous notes
+            document.getElementById('relocationNotes').value = '';
+            
+            // Show the modal
+            relocationModal.show();
         }
         
         // Found and Relocated button (for missing assets)
@@ -469,19 +476,25 @@ document.addEventListener('DOMContentLoaded', function() {
             currentAssetId = button.dataset.assetId;
             currentAssetName = button.dataset.assetName;
             
-            // Update modal with asset info and populate room dropdown
+            // Update modal title for relocation
+            document.getElementById('relocationModalLabel').textContent = 'Find Asset & Move to New Location';
+            
+            // Update modal with asset info
             document.querySelector('#relocationModal .asset-info').textContent = 
                 `Asset: ${currentAssetName} (${currentAssetId})`;
+                
+            // Update modal text for relocation
+            document.getElementById('locationUpdateText').textContent = 
+                'The asset will be marked as Found and its assigned location will be updated to the selected room.';
             
-            const roomSelect = document.getElementById('roomSelect');
-            roomSelect.innerHTML = '<option value="">Select a room...</option>';
+            // Populate the room dropdown normally (no preselection, not reassign mode)
+            populateRoomSelect(roomSelect, allRooms);
             
-            allRooms.forEach(room => {
-                const option = document.createElement('option');
-                option.value = room.room_id;
-                option.textContent = room.room_name;
-                roomSelect.appendChild(option);
-            });
+            // Update confirm button text
+            document.getElementById('confirmRelocationBtn').textContent = 'Confirm Move & Update';
+            
+            // Clear any previous notes
+            document.getElementById('relocationNotes').value = '';
             
             // Show the modal
             relocationModal.show();
@@ -490,16 +503,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Confirm button in Relocation modal
     document.getElementById('confirmRelocationBtn').addEventListener('click', function() {
-        const roomSelect = document.getElementById('roomSelect');
         const selectedRoomId = roomSelect.value;
+        const notes = document.getElementById('relocationNotes').value;
         
         if (!selectedRoomId) {
-            alert('Please select a room for relocation');
+            alert('Please select a room');
             return;
         }
         
         if (currentAssetId) {
-            markAssetAsFoundAndRelocated(currentAssetId, currentAssetName, selectedRoomId);
+            markAssetAsFoundAndRelocated(currentAssetId, currentAssetName, selectedRoomId, notes);
             relocationModal.hide();
         }
     });

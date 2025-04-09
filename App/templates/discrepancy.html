@@ -308,8 +308,14 @@
                             <!-- Rooms will be populated dynamically -->
                         </select>
                         <div class="form-text">
-                            The asset will be marked as Found and its assigned location will be updated to the selected room.
+                            <span id="locationUpdateText">The asset will be marked as Found and its assigned location will be updated to the selected room.</span>
                         </div>
+                    </div>
+                    
+                    <!-- New notes field -->
+                    <div class="form-group mb-3">
+                        <label for="relocationNotes" class="form-label">Notes (optional):</label>
+                        <textarea class="form-control" id="relocationNotes" rows="3" placeholder="Add any additional information about this relocation..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">

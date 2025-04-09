@@ -116,6 +116,7 @@ def relocate_asset(asset_id):
         return jsonify({'success': False, 'message': 'Room ID is required'}), 400
     
     new_room_id = data['roomId']
+    user_notes = data.get('notes', '')  # Get optional notes, default to empty string
     
     # Get the asset directly
     asset = get_asset(asset_id)
@@ -133,9 +134,26 @@ def relocate_asset(asset_id):
     asset.last_update = datetime.now()
     
     try:
-        # Create a single scan event using the existing controller
-        notes = f"Asset relocated and reassigned to room {get_room(new_room_id).room_name}. Previous status: {old_status}, previous location: {get_room(old_location).room_name}."
+        # Get room names for better context in notes
+        old_room_name = get_room(old_location).room_name if get_room(old_location) else f"Room {old_location}"
+        new_room_name = get_room(new_room_id).room_name if get_room(new_room_id) else f"Room {new_room_id}"
         
+        # Create the base notes about the relocation
+        if old_location == new_room_id:
+            system_notes = f"Asset reassigned to its current location ({new_room_name})."
+        else:
+            system_notes = f"Asset relocated and reassigned from {old_room_name} to {new_room_name}."
+            
+        # Add status change information
+        system_notes += f" Previous status: {old_status}."
+        
+        # Append user notes if provided
+        if user_notes:
+            notes = f"{system_notes} \n User note: {user_notes}"
+        else:
+            notes = system_notes
+        
+        # Create a single scan event using the existing controller
         add_scan_event(
             asset_id=asset_id,
             user_id=current_user.id,
@@ -144,7 +162,7 @@ def relocate_asset(asset_id):
             notes=notes
         )
         
-        # # Commit all changes at once
+        # Commit all changes at once
         db.session.commit()
         
         # Get room name for the response message
@@ -159,3 +177,4 @@ def relocate_asset(asset_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error updating asset: {str(e)}'}), 500
+    
