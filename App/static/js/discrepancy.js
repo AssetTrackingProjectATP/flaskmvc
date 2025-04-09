@@ -3,6 +3,29 @@ let allDiscrepancies = [];
 let currentFilter = 'all';
 let allRooms = []; // To store available rooms for relocation
 
+function populateRoomSelect(selectElement, rooms, defaultRoomId = null) {
+    selectElement.innerHTML = '<option value="">Select a room...</option>'; // Clear existing options
+
+    if (!rooms || rooms.length === 0) {
+        console.warn("No rooms available to populate select dropdown.");
+        selectElement.innerHTML = '<option value="">No rooms available</option>';
+        return;
+    }
+
+    rooms.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.room_id; // Ensure you use the correct property name ('room_id')
+        option.textContent = room.room_name; // Ensure you use the correct property name ('room_name')
+
+        // Pre-select if defaultRoomId matches (use == for potential type flexibility)
+        if (defaultRoomId != null && room.room_id == defaultRoomId) {
+            option.selected = true;
+        }
+        selectElement.appendChild(option);
+    });
+}
+
+
 // Function to load discrepancies from API
 async function loadDiscrepancies() {
     try {
@@ -427,6 +450,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up the Relocation modal
     const relocationModal = new bootstrap.Modal(document.getElementById('relocationModal'));
+    const roomSelect = document.getElementById('roomSelect')
     let currentAssetId = null;
     let currentAssetName = null;
     
@@ -491,33 +515,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Found and Relocated button (for missing assets)
+        if (e.target.closest('.misplaced-reassign-btn')) {
+            const button = e.target.closest('.misplaced-reassign-btn');
+            currentAssetId = button.dataset.assetId;
+            currentAssetName = button.dataset.assetName;
+            const currentLocation = button.dataset.currentLocation; // The ID where it was found
+
+            // Update modal with asset info
+            document.querySelector('#relocationModal .asset-info').textContent =
+                `Asset: ${currentAssetName} (${currentAssetId})`;
+
+            // Update modal text to indicate this is a reassignment
+            document.getElementById('locationUpdateText').textContent =
+                'The asset will be reassigned to its current location where it was found.';
+
+            // Populate the room dropdown using the helper function
+            // Pass the current location ID to pre-select it
+            populateRoomSelect(roomSelect, allRooms, currentLocation);
+
+            // Clear any previous notes
+            document.getElementById('relocationNotes').value = '';
+
+            // Show the modal
+            relocationModal.show();
+        }
+
+        // *** UPDATED Found and Relocated button handler (for missing assets) ***
         if (e.target.closest('.found-relocate-btn')) {
             const button = e.target.closest('.found-relocate-btn');
             currentAssetId = button.dataset.assetId;
             currentAssetName = button.dataset.assetName;
-            
+
             // Update modal with asset info and default text
-            document.querySelector('#relocationModal .asset-info').textContent = 
+            document.querySelector('#relocationModal .asset-info').textContent =
                 `Asset: ${currentAssetName} (${currentAssetId})`;
-            
+
             // Update modal text for missing asset relocation
-            document.getElementById('locationUpdateText').textContent = 
+            document.getElementById('locationUpdateText').textContent =
                 'The asset will be marked as Found and its assigned location will be updated to the selected room.';
-            
-            const roomSelect = document.getElementById('roomSelect');
-            roomSelect.innerHTML = '<option value="">Select a room...</option>';
-            
-            // Load rooms but don't preselect any
-            allRooms.forEach(room => {
-                const option = document.createElement('option');
-                option.value = room.room_id;
-                option.textContent = room.room_name;
-                roomSelect.appendChild(option);
-            });
-            
+
+            // Populate the room dropdown using the helper function (no default selection)
+            populateRoomSelect(roomSelect, allRooms);
+
             // Clear any previous notes
             document.getElementById('relocationNotes').value = '';
-            
+
             // Show the modal
             relocationModal.show();
         }
