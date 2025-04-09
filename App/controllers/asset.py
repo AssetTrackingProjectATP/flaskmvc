@@ -1,13 +1,15 @@
 from datetime import datetime
 from App.controllers.room import get_room
-from App.models import Asset 
+from App.models import Asset, Room 
 import os, csv
 from App.models.asset import *
 from App.controllers.assignee import *
 from App.controllers.scanevent import add_scan_event
 from flask_jwt_extended import current_user
+
 from App.database import db
 from App.models.room import Room 
+
 
 def get_asset(id):
     return Asset.query.filter_by(id=id).first()
@@ -85,6 +87,7 @@ def upload_csv(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
+
             
             expected_columns = ["Item", "Asset Tag", "Model", "Brand", "Serial Number", 
                                "Location", "Condition", "Assignee"]
@@ -171,6 +174,7 @@ def upload_csv(file_path):
         results['errors'].append(f"File processing error: {str(e)}")
         return results
             
+
 def delete_asset(id):
     asset = get_asset(id)
     if asset:

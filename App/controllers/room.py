@@ -1,6 +1,9 @@
-from App.models import Room
+from App.models import Room, Floor, Building
 from App.controllers.asset import *
+from App.controllers.building import *
+from App.controllers.floor import *
 from App.database import db
+import os, csv
 
 def create_room(room_id, floor_id, room_name):
     new_room = Room(room_id=room_id, floor_id=floor_id, room_name=room_name)
@@ -51,3 +54,22 @@ def delete_room(room_id):
             return True  # Room deleted successfully
     return False  # Room not found
 
+# def upload_csv(file_path):
+#     with open(file_path, 'r', encoding='utf-8-sig') as file:
+#      reader = csv.DictReader(file)
+#      for row in reader:
+     
+#         row = {key.strip(): value for key, value in row.items()}
+            
+#             # Access and assign values to variables
+#         new_building_id = row['Building ID']
+#         new_building_name = row['Building Name']
+#         new_floor_id = row["Floor ID"]
+#         new_floor_name = row["Floor Name"]
+#         new_room_id = row["Room ID"]
+#         new_room_name = row["Room Name"]
+        
+#         existing_building = Building.query.filter_by(building_id=new_building_id).first()
+#         existing_floor = Floor.query.filter_by(floor_id=new_floor_id).first()
+#         existing_room = Room.query.filter_by(room_id=new_room_id).first()
+#         #if existing_room:
