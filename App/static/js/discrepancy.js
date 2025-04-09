@@ -312,7 +312,7 @@ async function markAssetAsFound(assetId, assetName) {
 }
 
 // Function to handle marking an asset as found and relocated
-async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
+async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId, notes) {
     try {
         const response = await fetch(`/api/asset/${assetId}/relocate`, {
             method: 'POST',
@@ -320,7 +320,8 @@ async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                roomId: newRoomId
+                roomId: newRoomId,
+                notes: notes
             })
         });
         
@@ -353,48 +354,48 @@ async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId) {
 }
 
 // New function to handle automatically reassigning a misplaced asset to its current location
-async function reassignMisplacedAsset(assetId, assetName, currentLocationId) {
-    try {
-        // Confirmation message for users to understand what's happening
-        if (confirm(`Reassign ${assetName} (${assetId}) to its current location? This will update the asset's assigned room to match where it was found.`)) {
-            const response = await fetch(`/api/asset/${assetId}/relocate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    roomId: currentLocationId
-                })
-            });
+// async function reassignMisplacedAsset(assetId, assetName, currentLocationId) {
+//     try {
+//         // Confirmation message for users to understand what's happening
+//         if (confirm(`Reassign ${assetName} (${assetId}) to its current location? This will update the asset's assigned room to match where it was found.`)) {
+//             const response = await fetch(`/api/asset/${assetId}/relocate`, {
+//                 method: 'POST',
+//                 headers: {
+//                     'Content-Type': 'application/json'
+//                 },
+//                 body: JSON.stringify({
+//                     roomId: currentLocationId
+//                 })
+//             });
             
-            const result = await response.json();
+//             const result = await response.json();
             
-            if (response.ok) {
-                showStatusMessage(
-                    'Asset Reassigned', 
-                    `${assetName} (${assetId}) has been reassigned to its current location. The asset is no longer misplaced.`,
-                    'success'
-                );
+//             if (response.ok) {
+//                 showStatusMessage(
+//                     'Asset Reassigned', 
+//                     `${assetName} (${assetId}) has been reassigned to its current location. The asset is no longer misplaced.`,
+//                     'success'
+//                 );
                 
-                // Reload discrepancies after action
-                loadDiscrepancies();
-            } else {
-                showStatusMessage(
-                    'Error', 
-                    result.message || 'Failed to reassign asset. Please try again.',
-                    'danger'
-                );
-            }
-        }
-    } catch (error) {
-        console.error('Error reassigning misplaced asset:', error);
-        showStatusMessage(
-            'Error', 
-            'An error occurred while trying to reassign the asset. Please try again.',
-            'danger'
-        );
-    }
-}
+//                 // Reload discrepancies after action
+//                 loadDiscrepancies();
+//             } else {
+//                 showStatusMessage(
+//                     'Error', 
+//                     result.message || 'Failed to reassign asset. Please try again.',
+//                     'danger'
+//                 );
+//             }
+//         }
+//     } catch (error) {
+//         console.error('Error reassigning misplaced asset:', error);
+//         showStatusMessage(
+//             'Error', 
+//             'An error occurred while trying to reassign the asset. Please try again.',
+//             'danger'
+//         );
+//     }
+// }
 
 // Function to show status messages in modal
 function showStatusMessage(title, message, type) {
@@ -456,11 +457,37 @@ document.addEventListener('DOMContentLoaded', function() {
         // Misplaced Reassign button - automatically reassigns to current location
         if (e.target.closest('.misplaced-reassign-btn')) {
             const button = e.target.closest('.misplaced-reassign-btn');
-            const assetId = button.dataset.assetId;
-            const assetName = button.dataset.assetName;
+            currentAssetId = button.dataset.assetId;
+            currentAssetName = button.dataset.assetName;
             const currentLocation = button.dataset.currentLocation;
             
-            reassignMisplacedAsset(assetId, assetName, currentLocation);
+            // Update modal with asset info
+            document.querySelector('#relocationModal .asset-info').textContent = 
+                `Asset: ${currentAssetName} (${currentAssetId})`;
+            
+            // Get room name for display
+            const roomName = button.dataset.currentLocationName || `Room ${currentLocation}`;
+            
+            // Update modal text to indicate this is a reassignment
+            document.getElementById('locationUpdateText').textContent = 
+                'The asset will be reassigned to its current location where it was found.';
+            
+            // Populate the room dropdown (this will happen asynchronously)
+            const roomSelect = document.getElementById('roomSelect');
+            
+            // Once rooms are loaded, set current location as default
+            setTimeout(() => {
+                // Try to find and select the current location
+                for (let i = 0; i < roomSelect.options.length; i++) {
+                    if (roomSelect.options[i].value === currentLocation) {
+                        roomSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }, 300); // Small delay to ensure rooms are loaded
+            
+            // Show the modal
+            relocationModal.show();
         }
         
         // Found and Relocated button (for missing assets)
@@ -469,19 +496,27 @@ document.addEventListener('DOMContentLoaded', function() {
             currentAssetId = button.dataset.assetId;
             currentAssetName = button.dataset.assetName;
             
-            // Update modal with asset info and populate room dropdown
+            // Update modal with asset info and default text
             document.querySelector('#relocationModal .asset-info').textContent = 
                 `Asset: ${currentAssetName} (${currentAssetId})`;
+            
+            // Update modal text for missing asset relocation
+            document.getElementById('locationUpdateText').textContent = 
+                'The asset will be marked as Found and its assigned location will be updated to the selected room.';
             
             const roomSelect = document.getElementById('roomSelect');
             roomSelect.innerHTML = '<option value="">Select a room...</option>';
             
+            // Load rooms but don't preselect any
             allRooms.forEach(room => {
                 const option = document.createElement('option');
                 option.value = room.room_id;
                 option.textContent = room.room_name;
                 roomSelect.appendChild(option);
             });
+            
+            // Clear any previous notes
+            document.getElementById('relocationNotes').value = '';
             
             // Show the modal
             relocationModal.show();
@@ -492,6 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('confirmRelocationBtn').addEventListener('click', function() {
         const roomSelect = document.getElementById('roomSelect');
         const selectedRoomId = roomSelect.value;
+        const notes = document.getElementById('relocationNotes').value;
         
         if (!selectedRoomId) {
             alert('Please select a room for relocation');
@@ -499,8 +535,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (currentAssetId) {
-            markAssetAsFoundAndRelocated(currentAssetId, currentAssetName, selectedRoomId);
+            markAssetAsFoundAndRelocated(currentAssetId, currentAssetName, selectedRoomId, notes);
             relocationModal.hide();
         }
     });
+
+
 });
