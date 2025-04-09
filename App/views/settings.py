@@ -110,15 +110,23 @@ def upload_assets_csv():
             if os.path.exists(filepath):
                 os.remove(filepath)
             
-            if result:
-                return jsonify({'success': True, 'message': 'Assets imported successfully'})
+            if result['success']:
+                return jsonify({
+                    'success': True, 
+                    'message': f"Successfully imported {result['imported']} assets. {result['skipped']} skipped.",
+                    'details': result
+                })
             else:
-                return jsonify({'success': False, 'message': 'Failed to import assets'}), 500
+                return jsonify({
+                    'success': False, 
+                    'message': f"Failed to import assets: {result['errors'][0] if result['errors'] else 'Unknown error'}",
+                    'details': result
+                }), 400
         except Exception as e:
             return jsonify({'success': False, 'message': f'Error processing CSV: {str(e)}'}), 500
     else:
         return jsonify({'success': False, 'message': 'File must be a CSV'}), 400
-
+    
 @settings_views.route('/api/upload/locations-csv', methods=['POST'])
 @jwt_required()
 def upload_locations_csv():
