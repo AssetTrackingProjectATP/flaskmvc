@@ -318,53 +318,7 @@ def update_building_endpoint(building_id):
         })
     else:
         return jsonify({'success': False, 'message': 'Failed to update building. Database error.'}), 500
-@jwt_required()
-def update_building_endpoint(building_id):
-    try:
-        print(f"Building update request for building_id: {building_id}")
-        
-        data = request.json
-        print(f"Request data: {data}")
-        
-        if not data or 'building_name' not in data:
-            print("Error: Building name is required")
-            return jsonify({'success': False, 'message': 'Building name is required'}), 400
-        
-        building_name = data['building_name'].strip()
-        
-        if not building_name:
-            print("Error: Building name cannot be empty")
-            return jsonify({'success': False, 'message': 'Building name cannot be empty'}), 400
-        
-        # Check if building exists first
-        building = get_building(building_id)
-        if not building:
-            print(f"Error: Building with ID {building_id} not found")
-            return jsonify({'success': False, 'message': f'Building with ID {building_id} not found'}), 404
-        
-        # If building exists, update it
-        result = edit_building(building_id, building_name)
-        
-        if result is not None:
-            print(f"Building updated successfully: {building_id} - {building_name}")
-            return jsonify({
-                'success': True,
-                'message': 'Building updated successfully',
-                'building': {
-                    'building_id': building_id,
-                    'building_name': building_name
-                }
-            })
-        else:
-            print(f"Failed to update building: {building_id}")
-            return jsonify({'success': False, 'message': 'Failed to update building. Database error.'}), 500
-    
-    except Exception as e:
-        print(f"Exception in update_building_endpoint: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
-    
+
 @settings_views.route('/api/building/<building_id>/delete', methods=['POST'])
 @jwt_required()
 def delete_building_endpoint(building_id):
