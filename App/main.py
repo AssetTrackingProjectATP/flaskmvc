@@ -32,9 +32,19 @@ def create_app(overrides={}):
     init_db(app)
     jwt = setup_jwt(app)
     setup_admin(app)
+    
+    # Register error handler for authentication errors
     @jwt.invalid_token_loader
     @jwt.unauthorized_loader
     def custom_unauthorized_response(error):
         return render_template('401.html', error=error), 401
+    
+    # Create app context
     app.app_context().push()
+    
+    # Ensure default data exists (building, floor, and unknown room)
+    with app.app_context():
+        from App.controllers.initialize import ensure_defaults
+        ensure_defaults()
+    
     return app

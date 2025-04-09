@@ -7,7 +7,6 @@ from App.controllers.floor import *
 from App.controllers.provider import *
 from App.controllers.room import *
 from App.controllers.scanevent import *
-
 from datetime import datetime
 from App.database import db
 
@@ -61,3 +60,35 @@ def initialize():
 
     print("Sample data succesful.")
 
+def ensure_defaults():
+    """
+    Ensures default data exists without wiping existing data.
+    This is safe to run in production.
+    """
+    
+    # Create default building if it doesn't exist
+    default_building_id = "DEFAULT"
+    default_building = get_building(default_building_id)
+    if not default_building:
+        default_building = create_building(default_building_id, "Default Building")
+        print(f"Created default building: {default_building_id}")
+    
+    # Create default floor if it doesn't exist
+    default_floor_id = "DEFAULT"
+    default_floor = get_floor(default_floor_id)
+    if not default_floor:
+        default_floor = create_floor(default_floor_id, default_building_id, "Default Floor")
+        print(f"Created default floor: {default_floor_id}")
+    
+    # Create unknown room if it doesn't exist
+    unknown_room_id = "UNKNOWN"
+    unknown_room = get_room(unknown_room_id)
+    if not unknown_room:
+        unknown_room = create_room(unknown_room_id, default_floor_id, "Unknown Room")
+        print(f"Created unknown room: {unknown_room_id}")
+    
+    return {
+        "building": default_building,
+        "floor": default_floor, 
+        "room": unknown_room
+    }
