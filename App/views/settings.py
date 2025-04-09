@@ -144,66 +144,182 @@ def upload_locations_csv():
             stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
             csv_reader = csv.DictReader(stream)
             
+            # Initialize counters and error collection
             buildings_created = 0
             floors_created = 0
             rooms_created = 0
+            skipped_rows = 0
+            errors = []
             
-            for row in csv_reader:
-                # Extract data
-                building_name = row.get('building_name', '').strip()
-                floor_name = row.get('floor_name', '').strip()
-                room_name = row.get('room_name', '').strip()
-                
-                if not building_name:
-                    continue
-                
-                # Create building if it doesn't exist
-                buildings = get_all_building_json()
-                building = next((b for b in buildings if b['building_name'].lower() == building_name.lower()), None)
-                
-                if not building:
-                    # Generate a unique building ID
-                    building_id = f"B{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                    building_obj = create_building(building_id, building_name)
-                    building_id = building_obj.building_id
-                    buildings_created += 1
-                else:
-                    building_id = building['building_id']
-                
-                # If floor name is provided
-                if floor_name:
-                    # Create floor if it doesn't exist
-                    floors = get_floors_by_building(building_id)
-                    floor = next((f for f in floors if f.floor_name.lower() == floor_name.lower()), None)
+            # Track which entities we've already processed to avoid duplicates
+            processed_buildings = {}  # Dict of id -> building object
+            processed_floors = {}  # Dict of id -> floor object
+            processed_rooms = {}  # Dict of id -> room object
+            
+            for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 to account for header row
+                try:
+                    # Extract data with defaults for missing values
+                    building_id = row.get('building_id', '').strip()
+                    building_name = row.get('building_name', '').strip()
+                    floor_id = row.get('floor_id', '').strip()
+                    floor_name = row.get('floor_name', '').strip()
+                    room_id = row.get('room_id', '').strip()
+                    room_name = row.get('room_name', '').strip()
                     
-                    if not floor:
-                        # Generate a unique floor ID
-                        floor_id = f"F{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                        floor = create_floor(floor_id, building_id, floor_name)
-                        floor_id = floor.floor_id
-                        floors_created += 1
+                    # Skip empty rows
+                    if not building_name:
+                        errors.append(f"Row {row_num}: Missing building name (required)")
+                        skipped_rows += 1
+                        continue
+                    
+                    # BUILDING HANDLING
+                    current_building = None
+                    
+                    # If building_id provided, check if it exists
+                    if building_id:
+                        existing_building = get_building(building_id)
+                        if existing_building:
+                            # Building exists with this ID
+                            current_building = existing_building
+                            
+                            # Verify the building name matches
+                            if existing_building.building_name != building_name:
+                                errors.append(f"Row {row_num}: Building ID {building_id} exists but with name '{existing_building.building_name}' (not '{building_name}')")
+                                skipped_rows += 1
+                                continue
+                        else:
+                            # Building ID provided but doesn't exist, create it
+                            current_building = create_building(building_id, building_name)
+                            buildings_created += 1
                     else:
-                        floor_id = floor.floor_id
-                    
-                    # If room name is provided
-                    if room_name:
-                        # Create room if it doesn't exist
-                        rooms = get_rooms_by_floor(floor_id)
-                        room = next((r for r in rooms if r.room_name.lower() == room_name.lower()), None)
+                        # No building_id provided, check if a building with this name exists
+                        buildings = get_all_building_json()
+                        existing_building = next((b for b in buildings if b['building_name'].lower() == building_name.lower()), None)
                         
-                        if not room:
-                            # Generate a unique room ID
-                            room_id = f"R{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                            room = create_room(room_id, floor_id, room_name)
+                        if existing_building:
+                            # Building exists with this name
+                            current_building = get_building(existing_building['building_id'])
+                        else:
+                            # Generate a unique building ID
+                            new_building_id = f"B{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                            current_building = create_building(new_building_id, building_name)
+                            buildings_created += 1
+                    
+                    # Store the building for reference
+                    processed_buildings[current_building.building_id] = current_building
+                    
+                    # If we don't have floor information, we're done with this row
+                    if not floor_name:
+                        continue
+                    
+                    # FLOOR HANDLING
+                    current_floor = None
+                    
+                    # If floor_id provided, check if it exists
+                    if floor_id:
+                        existing_floor = get_floor(floor_id)
+                        if existing_floor:
+                            # Floor exists with this ID
+                            current_floor = existing_floor
+                            
+                            # Verify the floor belongs to the right building
+                            if existing_floor.building_id != current_building.building_id:
+                                errors.append(f"Row {row_num}: Floor ID {floor_id} exists but belongs to building {existing_floor.building_id} (not {current_building.building_id})")
+                                skipped_rows += 1
+                                continue
+                                
+                            # Verify the floor name matches
+                            if existing_floor.floor_name != floor_name:
+                                errors.append(f"Row {row_num}: Floor ID {floor_id} exists but with name '{existing_floor.floor_name}' (not '{floor_name}')")
+                                skipped_rows += 1
+                                continue
+                        else:
+                            # Floor ID provided but doesn't exist, create it
+                            current_floor = create_floor(floor_id, current_building.building_id, floor_name)
+                            floors_created += 1
+                    else:
+                        # No floor_id provided, check if a floor with this name exists in the building
+                        floors = get_floors_by_building(current_building.building_id)
+                        existing_floor = next((f for f in floors if f.floor_name.lower() == floor_name.lower()), None)
+                        
+                        if existing_floor:
+                            # Floor exists with this name in this building
+                            current_floor = existing_floor
+                        else:
+                            # Generate a unique floor ID
+                            new_floor_id = f"F{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                            current_floor = create_floor(new_floor_id, current_building.building_id, floor_name)
+                            floors_created += 1
+                    
+                    # Store the floor for reference
+                    processed_floors[current_floor.floor_id] = current_floor
+                    
+                    # If we don't have room information, we're done with this row
+                    if not room_name:
+                        continue
+                    
+                    # ROOM HANDLING
+                    current_room = None
+                    
+                    # If room_id provided, check if it exists
+                    if room_id:
+                        existing_room = get_room(room_id)
+                        if existing_room:
+                            # Room exists with this ID
+                            current_room = existing_room
+                            
+                            # Verify the room belongs to the right floor
+                            if existing_room.floor_id != current_floor.floor_id:
+                                errors.append(f"Row {row_num}: Room ID {room_id} exists but belongs to floor {existing_room.floor_id} (not {current_floor.floor_id})")
+                                skipped_rows += 1
+                                continue
+                                
+                            # Verify the room name matches
+                            if existing_room.room_name != room_name:
+                                errors.append(f"Row {row_num}: Room ID {room_id} exists but with name '{existing_room.room_name}' (not '{room_name}')")
+                                skipped_rows += 1
+                                continue
+                        else:
+                            # Room ID provided but doesn't exist, create it
+                            current_room = create_room(room_id, current_floor.floor_id, room_name)
                             rooms_created += 1
+                    else:
+                        # No room_id provided, check if a room with this name exists in the floor
+                        rooms = get_rooms_by_floor(current_floor.floor_id)
+                        existing_room = next((r for r in rooms if r.room_name.lower() == room_name.lower()), None)
+                        
+                        if existing_room:
+                            # Room exists with this name in this floor
+                            current_room = existing_room
+                        else:
+                            # Generate a unique room ID
+                            new_room_id = f"R{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                            current_room = create_room(new_room_id, current_floor.floor_id, room_name)
+                            rooms_created += 1
+                    
+                    # Store the room for reference
+                    processed_rooms[current_room.room_id] = current_room
+                    
+                except Exception as e:
+                    errors.append(f"Row {row_num}: Error - {str(e)}")
+                    skipped_rows += 1
             
-            return jsonify({
-                'success': True, 
-                'message': f'Successfully imported {buildings_created} buildings, {floors_created} floors, and {rooms_created} rooms',
+            # Construct response
+            response_data = {
+                'success': buildings_created > 0 or floors_created > 0 or rooms_created > 0,
+                'message': f'Successfully imported {buildings_created} buildings, {floors_created} floors, and {rooms_created} rooms. {skipped_rows} rows skipped.',
                 'buildings_created': buildings_created,
                 'floors_created': floors_created,
-                'rooms_created': rooms_created
-            })
+                'rooms_created': rooms_created,
+                'skipped_rows': skipped_rows,
+                'errors': errors[:10]  # Limit number of errors returned to avoid huge responses
+            }
+            
+            if errors and len(errors) > 10:
+                response_data['message'] += f" Showing first 10 of {len(errors)} errors."
+            
+            return jsonify(response_data)
+            
         except Exception as e:
             return jsonify({'success': False, 'message': f'Error processing CSV: {str(e)}'}), 500
     else:
@@ -239,14 +355,17 @@ def download_location_template():
     csv_content = io.StringIO()
     writer = csv.writer(csv_content)
     
-    # Write header row
-    writer.writerow(['building_name', 'floor_name', 'room_name'])
+    # Write header row with all fields
+    writer.writerow(['building_id', 'building_name', 'floor_id', 'floor_name', 'room_id', 'room_name'])
     
     # Write example rows
-    writer.writerow(['Main Building', '1st Floor', 'Room 101'])
-    writer.writerow(['Main Building', '1st Floor', 'Room 102'])
-    writer.writerow(['Main Building', '2nd Floor', 'Room 201'])
-    writer.writerow(['Annex Building', 'Ground Floor', 'Meeting Room'])
+    writer.writerow(['B001', 'Main Building', 'F001', '1st Floor', 'R001', 'Room 101'])
+    writer.writerow(['B001', 'Main Building', 'F001', '1st Floor', 'R002', 'Room 102'])
+    writer.writerow(['B001', 'Main Building', 'F002', '2nd Floor', 'R003', 'Room 201'])
+    writer.writerow(['B002', 'Annex Building', 'F003', 'Ground Floor', 'R004', 'Meeting Room'])
+    
+    # Add a row to show that IDs are optional (will be generated if not provided)
+    writer.writerow(['', 'IT Building', '', '3rd Floor', '', 'Server Room'])
     
     # Create a response with the CSV content
     csv_content.seek(0)
@@ -256,6 +375,7 @@ def download_location_template():
         as_attachment=True,
         download_name='location_template.csv'
     )
+    
 
 # Location management endpoints - Buildings
 @settings_views.route('/api/buildings', methods=['GET'])
