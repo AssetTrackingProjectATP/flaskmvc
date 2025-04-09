@@ -20,7 +20,7 @@ function populateRoomSelect(selectElement, rooms, defaultRoomId = null, isReassi
 
         // Check if this is the default room AND we are in reassign mode
         if (isReassignMode && defaultRoomId != null && room.room_id == defaultRoomId) {
-            optionText = `${room.room_name} (Current Location - Reassign Here)`; // Modify text
+            optionText = `${room.room_name} (Confirm reassignment)`;
             option.selected = true; // Ensure it's selected
         }
 
@@ -131,11 +131,11 @@ function renderDiscrepancies(discrepancies) {
                 </button>
                 
                 <button class="btn btn-primary btn-sm found-relocate-btn d-flex align-items-center" 
-                        data-tooltip="Relocate to New Room"
+                        data-tooltip="Find & Move to New Location"
                         data-asset-id="${assetId}" 
                         data-asset-name="${description}">
                     <i class="bi bi-geo-alt me-1"></i> 
-                    <span class="d-none d-md-inline">Relocate</span>
+                    <span class="d-none d-md-inline">Reassign</span>
                 </button>
         
                 <!-- Dropdown for Less Common Actions -->
@@ -176,7 +176,7 @@ function renderDiscrepancies(discrepancies) {
                 </button>
                 
                 <button class="btn btn-primary btn-sm misplaced-reassign-btn d-flex align-items-center" 
-                        data-tooltip="Reassign to Current Location"
+                        data-tooltip="Update Record to Match Current Location"
                         data-asset-id="${assetId}" 
                         data-asset-name="${description}"
                         data-current-location="${asset.last_located}">
@@ -380,50 +380,6 @@ async function markAssetAsFoundAndRelocated(assetId, assetName, newRoomId, notes
     }
 }
 
-// New function to handle automatically reassigning a misplaced asset to its current location
-// async function reassignMisplacedAsset(assetId, assetName, currentLocationId) {
-//     try {
-//         // Confirmation message for users to understand what's happening
-//         if (confirm(`Reassign ${assetName} (${assetId}) to its current location? This will update the asset's assigned room to match where it was found.`)) {
-//             const response = await fetch(`/api/asset/${assetId}/relocate`, {
-//                 method: 'POST',
-//                 headers: {
-//                     'Content-Type': 'application/json'
-//                 },
-//                 body: JSON.stringify({
-//                     roomId: currentLocationId
-//                 })
-//             });
-            
-//             const result = await response.json();
-            
-//             if (response.ok) {
-//                 showStatusMessage(
-//                     'Asset Reassigned', 
-//                     `${assetName} (${assetId}) has been reassigned to its current location. The asset is no longer misplaced.`,
-//                     'success'
-//                 );
-                
-//                 // Reload discrepancies after action
-//                 loadDiscrepancies();
-//             } else {
-//                 showStatusMessage(
-//                     'Error', 
-//                     result.message || 'Failed to reassign asset. Please try again.',
-//                     'danger'
-//                 );
-//             }
-//         }
-//     } catch (error) {
-//         console.error('Error reassigning misplaced asset:', error);
-//         showStatusMessage(
-//             'Error', 
-//             'An error occurred while trying to reassign the asset. Please try again.',
-//             'danger'
-//         );
-//     }
-// }
-
 // Function to show status messages in modal
 function showStatusMessage(title, message, type) {
     const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
@@ -454,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up the Relocation modal
     const relocationModal = new bootstrap.Modal(document.getElementById('relocationModal'));
-    const roomSelect = document.getElementById('roomSelect')
+    const roomSelect = document.getElementById('roomSelect');
     let currentAssetId = null;
     let currentAssetName = null;
     
@@ -489,132 +445,75 @@ document.addEventListener('DOMContentLoaded', function() {
             currentAssetName = button.dataset.assetName;
             const currentLocation = button.dataset.currentLocation;
             
+            // Update modal title to indicate reassignment
+            document.getElementById('relocationModalLabel').textContent = 'Reassign Asset to Current Location';
+            
             // Update modal with asset info
             document.querySelector('#relocationModal .asset-info').textContent = 
                 `Asset: ${currentAssetName} (${currentAssetId})`;
-            
-            // Get room name for display
-            const roomName = button.dataset.currentLocationName || `Room ${currentLocation}`;
-            
+                
             // Update modal text to indicate this is a reassignment
             document.getElementById('locationUpdateText').textContent = 
-                'The asset will be reassigned to its current location where it was found.';
+                'The asset will be reassigned to match its current found location.';
             
-            // Populate the room dropdown (this will happen asynchronously)
-            const roomSelect = document.getElementById('roomSelect');
+            // Populate the room dropdown using the helper function
+            // Pass the current location ID to pre-select it and set reassign mode to true
+            populateRoomSelect(roomSelect, allRooms, currentLocation, true);
             
-            // Once rooms are loaded, set current location as default
-            setTimeout(() => {
-                // Try to find and select the current location
-                for (let i = 0; i < roomSelect.options.length; i++) {
-                    if (roomSelect.options[i].value === currentLocation) {
-                        roomSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-            }, 300); // Small delay to ensure rooms are loaded
+            // Update confirm button text
+            document.getElementById('confirmRelocationBtn').textContent = 'Confirm Reassignment';
+            
+            // Clear any previous notes
+            document.getElementById('relocationNotes').value = '';
             
             // Show the modal
             relocationModal.show();
         }
         
         // Found and Relocated button (for missing assets)
-        if (e.target.closest('.misplaced-reassign-btn')) {
-            const button = e.target.closest('.misplaced-reassign-btn');
-            currentAssetId = button.dataset.assetId;
-            currentAssetName = button.dataset.assetName;
-            const currentLocation = button.dataset.currentLocation; // The ID where it was found
-
-            // Update modal with asset info
-            document.querySelector('#relocationModal .asset-info').textContent =
-                `Asset: ${currentAssetName} (${currentAssetId})`;
-
-            // Update modal text to indicate this is a reassignment
-            document.getElementById('locationUpdateText').textContent =
-                'The asset will be reassigned to its current location where it was found.';
-
-            // Populate the room dropdown using the helper function
-            // Pass the current location ID to pre-select it
-            populateRoomSelect(roomSelect, allRooms, currentLocation);
-
-            // Clear any previous notes
-            document.getElementById('relocationNotes').value = '';
-
-            // Show the modal
-            relocationModal.show();
-        }
-
-        // *** UPDATED Found and Relocated button handler (for missing assets) ***
-        if (e.target.closest('.misplaced-reassign-btn')) {
-            const button = e.target.closest('.misplaced-reassign-btn');
-            currentAssetId = button.dataset.assetId;
-            currentAssetName = button.dataset.assetName;
-            const currentLocation = button.dataset.currentLocation; // The ID where it was found
-
-            // Update modal with asset info
-            document.querySelector('#relocationModal .asset-info').textContent =
-                `Asset: ${currentAssetName} (${currentAssetId})`;
-
-            // *** Remove the descriptive text ***
-            locationUpdateTextElement.textContent = ''; // Clear the text
-            // Optional: Hide it if you prefer
-            locationUpdateTextElement.style.display = 'none';
-
-            // Populate the room dropdown using the helper function
-            // Pass the current location ID to pre-select it and set reassign mode to true
-            populateRoomSelect(roomSelect, allRooms, currentLocation, true); // Added true for reassign mode
-
-            // Clear any previous notes
-            document.getElementById('relocationNotes').value = '';
-
-            // Show the modal
-            relocationModal.show();
-        }
-
-        // *** UPDATED Found and Relocated button handler (for missing assets) ***
         if (e.target.closest('.found-relocate-btn')) {
             const button = e.target.closest('.found-relocate-btn');
             currentAssetId = button.dataset.assetId;
             currentAssetName = button.dataset.assetName;
-
+            
+            // Update modal title for relocation
+            document.getElementById('relocationModalLabel').textContent = 'Find Asset & Move to New Location';
+            
             // Update modal with asset info
-            document.querySelector('#relocationModal .asset-info').textContent =
+            document.querySelector('#relocationModal .asset-info').textContent = 
                 `Asset: ${currentAssetName} (${currentAssetId})`;
-
-            // *** Restore the descriptive text for this case ***
-            locationUpdateTextElement.textContent =
+                
+            // Update modal text for relocation
+            document.getElementById('locationUpdateText').textContent = 
                 'The asset will be marked as Found and its assigned location will be updated to the selected room.';
-            // Optional: Ensure it's visible if hidden previously
-            locationUpdateTextElement.style.display = 'block';
-
-
-            // Populate the room dropdown using the helper function (no default selection, not reassign mode)
-            populateRoomSelect(roomSelect, allRooms, null, false); // Pass null and false
-
+            
+            // Populate the room dropdown normally (no preselection, not reassign mode)
+            populateRoomSelect(roomSelect, allRooms);
+            
+            // Update confirm button text
+            document.getElementById('confirmRelocationBtn').textContent = 'Confirm Move & Update';
+            
             // Clear any previous notes
             document.getElementById('relocationNotes').value = '';
-
+            
             // Show the modal
             relocationModal.show();
         }
     });
-
+    
     // Confirm button in Relocation modal
     document.getElementById('confirmRelocationBtn').addEventListener('click', function() {
-        // ... (keep existing code)
-        const selectedRoomId = roomSelect.value; // Use the cached element
+        const selectedRoomId = roomSelect.value;
         const notes = document.getElementById('relocationNotes').value;
-
+        
         if (!selectedRoomId) {
-            alert('Please select a room'); // Changed message slightly
+            alert('Please select a room');
             return;
         }
-
+        
         if (currentAssetId) {
             markAssetAsFoundAndRelocated(currentAssetId, currentAssetName, selectedRoomId, notes);
             relocationModal.hide();
         }
     });
 });
-
-
