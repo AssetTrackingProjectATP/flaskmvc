@@ -289,6 +289,37 @@ def add_building():
 @settings_views.route('/api/building/<building_id>/update', methods=['POST'])
 @jwt_required()
 def update_building_endpoint(building_id):
+    data = request.json
+    
+    if not data or 'building_name' not in data:
+        return jsonify({'success': False, 'message': 'Building name is required'}), 400
+    
+    building_name = data['building_name'].strip()
+    
+    if not building_name:
+        return jsonify({'success': False, 'message': 'Building name cannot be empty'}), 400
+    
+    # Check if building exists first
+    building = get_building(building_id)
+    if not building:
+        return jsonify({'success': False, 'message': f'Building with ID {building_id} not found'}), 404
+    
+    # If building exists, update it
+    result = edit_building(building_id, building_name)
+    
+    if result:  # Check if a building was returned (success)
+        return jsonify({
+            'success': True,
+            'message': 'Building updated successfully',
+            'building': {
+                'building_id': result.building_id,
+                'building_name': result.building_name
+            }
+        })
+    else:
+        return jsonify({'success': False, 'message': 'Failed to update building. Database error.'}), 500
+@jwt_required()
+def update_building_endpoint(building_id):
     try:
         print(f"Building update request for building_id: {building_id}")
         
