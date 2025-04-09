@@ -6,9 +6,10 @@ from App.models.asset import *
 from App.controllers.assignee import *
 from App.controllers.scanevent import add_scan_event
 from flask_jwt_extended import current_user
-from App.database import db 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
+
+from App.database import db
+from App.models.room import Room 
+
 
 def get_asset(id):
     return Asset.query.filter_by(id=id).first()
@@ -37,9 +38,18 @@ def get_all_assets_by_room_json(room_id):
 
 
 def add_asset(id, description, model, brand, serial_number, room_id, last_located, assignee_id, last_update, notes):
-    status = "Misplaced"
-    if(last_located==room_id):
-        status = "Good"
+    # Check if room exists
+    existing_room = Room.query.filter_by(room_id=room_id).first()
+    if existing_room is None:
+        # Room doesn't exist, use the "UNKNOWN" room
+        room_id = "UNKNOWN"
+        last_located = room_id  # Also update last_located to match the unknown room
+        status = "Unassigned"
+    else:
+        # Room exists, set status normally
+        status = "Misplaced"
+        if last_located == room_id:
+            status = "Good"
     
     newAsset = Asset(id, description, model, brand, serial_number, room_id, last_located, assignee_id, last_update, notes, status)
 
@@ -50,7 +60,7 @@ def add_asset(id, description, model, brand, serial_number, room_id, last_locate
     except:
         db.session.rollback()
         return None
-    
+         
 def set_last_located(id,last_located):
     new_asset = get_asset(id)
     new_asset.last_located = last_located
@@ -77,6 +87,7 @@ def upload_csv(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
+
             
             expected_columns = ["Item", "Asset Tag", "Model", "Brand", "Serial Number", 
                                "Location", "Condition", "Assignee"]
@@ -100,7 +111,7 @@ def upload_csv(file_path):
                     new_brand = row.get('Brand', '')
                     new_sn = row.get('Serial Number', '')
                     new_room = row.get('Location', '')
-                    new_status = row.get('Condition', 'Good')
+                    new_condition = row.get('Condition', 'Good')  # Get condition from CSV
                     new_assignee = row.get('Assignee', '')
                     new_last = datetime.now()
                     new_notes = None  # Default to None
@@ -117,33 +128,34 @@ def upload_csv(file_path):
                     
                     existing_room = Room.query.filter_by(room_id=new_room).first()
                     if existing_room is None:
-                        new_status = "Unassigned"
+                        # Room doesn't exist, log that it's being redirected to Unknown Room
+                        results['errors'].append(f"Row {row_num}: Location '{row.get('Location', '')}' not found, assigned to Unknown Room")
                     
-                    new_ll = new_room
-                    
-                    existing_asset = Asset.query.filter_by(id=new_id).first()
-                    if existing_asset:
-                        results['errors'].append(f"Row {row_num}: Asset with ID {new_id} already exists")
-                        results['skipped'] += 1
-                        continue
-                        
-                    new_asset = Asset(
+                    # Let add_asset handle the room assignment and status determination
+                    new_asset = add_asset(
                         id=new_id,
                         description=new_item,
                         model=new_model,
-                        brand=new_brand,
+                        brand=new_brand, 
                         serial_number=new_sn,
                         room_id=new_room,
-                        last_located=new_ll,
-                        status=new_status,
+                        last_located=new_room,  # Initially set last_located to match room_id
                         assignee_id=new_assignee,
                         last_update=new_last,
                         notes=new_notes
                     )
                     
-                    db.session.add(new_asset)
-                    db.session.commit()
-                    results['imported'] += 1
+                    if new_asset:
+                        # If the condition from CSV doesn't match the calculated status,
+                        # override it (e.g., for "Missing" or "Lost" conditions)
+                        if new_condition not in ["Good", "Misplaced", "Unassigned"]:
+                            new_asset.status = new_condition
+                            db.session.commit()
+                        
+                        results['imported'] += 1
+                    else:
+                        results['errors'].append(f"Row {row_num}: Failed to add asset to database")
+                        results['skipped'] += 1
                     
                 except IntegrityError as e:
                     db.session.rollback()
@@ -160,10 +172,9 @@ def upload_csv(file_path):
             
     except Exception as e:
         results['errors'].append(f"File processing error: {str(e)}")
-        return results                   
-        
+        return results
             
-                
+
 def delete_asset(id):
     asset = get_asset(id)
     if asset:

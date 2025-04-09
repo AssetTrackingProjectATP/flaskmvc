@@ -18,7 +18,7 @@ def get_rooms_by_floor(floor_id):
     return Room.query.filter_by(floor_id=floor_id)
 
 def get_all_rooms():
-    return Room.query.all()
+    return Room.query.filter(Room.room_id != "UNKNOWN").all()
 
 def get_all_rooms_json():
     rooms=get_all_rooms()

@@ -32,7 +32,7 @@ def edit_building(building_id, building_name):
         return None
 
 def get_all_building_json():
-    buildings = Building.query.all()
+    buildings = Building.query.filter(Building.building_id != "DEFAULT").all()
     if not buildings:
         return[]
     buildings = [building.get_json() for building in buildings]

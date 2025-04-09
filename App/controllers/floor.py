@@ -15,7 +15,7 @@ def get_floors_by_building(building_id):
     return Floor.query.filter_by(building_id=building_id).all()
 
 def get_all_floors():
-    return Floor.query.all()
+    return Floor.query.filter(Floor.floor_id != "DEFAULT").all()
 
 def get_all_floors_json():
     floors=get_all_floors()
