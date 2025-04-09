@@ -1,12 +1,14 @@
 from datetime import datetime
 from App.controllers.room import get_room
-from App.models import Asset 
+from App.models import Asset, Room 
 import os, csv
 from App.models.asset import *
 from App.controllers.assignee import *
 from App.controllers.scanevent import add_scan_event
 from flask_jwt_extended import current_user
 from App.database import db 
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import IntegrityError
 
 def get_asset(id):
     return Asset.query.filter_by(id=id).first()
@@ -64,44 +66,104 @@ def set_status(id):
     
     
 def upload_csv(file_path):
-    with open(file_path, 'r', encoding='utf-8-sig') as file:
-     reader = csv.DictReader(file)
-     for row in reader:
-     
-        row = {key.strip(): value for key, value in row.items()}
+    results = {
+        'success': False,
+        'total': 0,
+        'imported': 0,
+        'skipped': 0,
+        'errors': []
+    }
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8-sig') as file:
+            reader = csv.DictReader(file)
             
-            # Access and assign values to variables
-        new_item = row['Item']
-        new_id = row['Asset Tag']
-        new_model = row["Model"]
-        new_brand = row["Brand"]
-        new_sn = row["Serial Number"]
-        new_room = row["Location"]
-        new_ll = new_room
-        new_status = row["Condition"]
-        new_assignee = row["Assignee"]
-        new_last = db.func.current_timestamp()  # Assuming you are using SQLAlchemy
-        new_notes = None  # Replace `null` with `None` in Python
-
-            # Create a new Asset instance using the gathered data
-        n_a = Asset(
-            id=new_id,
-            description=new_item,
-            model=new_model,
-            brand=new_brand,
-            serial_number=new_sn,
-            room_id=new_room,
-            last_located=new_ll,
-            status=new_status,
-            assignee_id=new_assignee,
-            last_update=new_last,
-            notes=new_notes
-            )
-
-            # Add the new asset to the database session and commit
-        db.session.add(n_a)
-        db.session.commit()
+            expected_columns = ["Item", "Asset Tag", "Model", "Brand", "Serial Number", 
+                               "Location", "Condition", "Assignee"]
+            actual_columns = [col.strip() for col in reader.fieldnames]
+            
+            missing_columns = [col for col in expected_columns if col not in actual_columns]
+            if missing_columns:
+                results['errors'].append(f"Missing required columns: {', '.join(missing_columns)}")
+                return results
+                
+            for row_num, row in enumerate(reader, start=2):  # Start at 2 to account for header row
+                results['total'] += 1
+                
+                try:
+                    row = {key.strip(): (value.strip() if isinstance(value, str) else value) 
+                          for key, value in row.items()}
+                    
+                    new_item = row.get('Item', '')
+                    new_id = row.get('Asset Tag', '')
+                    new_model = row.get('Model', '')
+                    new_brand = row.get('Brand', '')
+                    new_sn = row.get('Serial Number', '')
+                    new_room = row.get('Location', '')
+                    new_status = row.get('Condition', 'Good')
+                    new_assignee = row.get('Assignee', '')
+                    new_last = datetime.now()
+                    new_notes = None  # Default to None
+                    
+                    if not new_id:
+                        results['errors'].append(f"Row {row_num}: Missing Asset Tag (required)")
+                        results['skipped'] += 1
+                        continue
+                        
+                    if not new_item:
+                        results['errors'].append(f"Row {row_num}: Missing Item description (required)")
+                        results['skipped'] += 1
+                        continue
+                    
+                    existing_room = Room.query.filter_by(room_id=new_room).first()
+                    if existing_room is None:
+                        new_status = "Unassigned"
+                    
+                    new_ll = new_room
+                    
+                    existing_asset = Asset.query.filter_by(id=new_id).first()
+                    if existing_asset:
+                        results['errors'].append(f"Row {row_num}: Asset with ID {new_id} already exists")
+                        results['skipped'] += 1
+                        continue
+                        
+                    new_asset = Asset(
+                        id=new_id,
+                        description=new_item,
+                        model=new_model,
+                        brand=new_brand,
+                        serial_number=new_sn,
+                        room_id=new_room,
+                        last_located=new_ll,
+                        status=new_status,
+                        assignee_id=new_assignee,
+                        last_update=new_last,
+                        notes=new_notes
+                    )
+                    
+                    db.session.add(new_asset)
+                    db.session.commit()
+                    results['imported'] += 1
+                    
+                except IntegrityError as e:
+                    db.session.rollback()
+                    results['errors'].append(f"Row {row_num}: Database integrity error - {str(e)}")
+                    results['skipped'] += 1
+                except Exception as e:
+                    db.session.rollback()
+                    results['errors'].append(f"Row {row_num}: Error - {str(e)}")
+                    results['skipped'] += 1
+            
+            # Set success if at least one asset was imported
+            results['success'] = results['imported'] > 0
+            return results
+            
+    except Exception as e:
+        results['errors'].append(f"File processing error: {str(e)}")
+        return results                   
         
+            
+                
 def delete_asset(id):
     asset = get_asset(id)
     if asset:
