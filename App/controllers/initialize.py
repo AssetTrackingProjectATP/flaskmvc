@@ -9,6 +9,8 @@ from App.controllers.room import *
 from App.controllers.scanevent import *
 from datetime import datetime
 from App.database import db
+from sqlalchemy import inspect
+
 
 
 def initialize():
@@ -65,6 +67,14 @@ def ensure_defaults():
     Ensures default data exists without wiping existing data.
     This is safe to run in production.
     """
+    inspector = inspect(db.engine)
+    
+    if not (inspector.has_table('building') and 
+        inspector.has_table('floor') and 
+        inspector.has_table('room') and 
+        inspector.has_table('user')):
+        # Tables don't exist yet, so don't try to add defaults
+        return
     
     # Create default building if it doesn't exist
     default_building_id = "DEFAULT"
