@@ -34,7 +34,7 @@ def init():
     
        
     filepath = 'CSVsample.csv' 
-    upload_csv(filepath)
+    # upload_csv(filepath)
     
         
 

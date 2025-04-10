@@ -441,6 +441,8 @@ function stopRoomAudit(markMissing = true) {
     // If not active, do nothing
     if (!isRoomAuditActive) return;
     
+    console.log("Stopping room audit, markMissing:", markMissing);
+    
     isRoomAuditActive = false;
     
     stopAllScanningMethods();
@@ -474,7 +476,6 @@ function stopRoomAudit(markMissing = true) {
     }
 }
 
-// The rest of your existing audit.js file remains unchanged
 // Function to prevent Enter key default actions except in search input
 function preventEnterDefault(e) {
     // Allow Enter in search input for manual searching
@@ -861,11 +862,13 @@ function addUnexpectedAsset(assetId) {
 
 function markUnscannedAssetsMissing() {
     let missingCount = 0;
+    const missingAssets = [];
     
     expectedAssets.forEach(asset => {
         if (!asset.found) {
             asset.status = 'Missing';
             missingCount++;
+            missingAssets.push(asset.id);
             
             // Update status in the UI
             const row = document.getElementById(`expected-asset-${asset.id}`);
@@ -876,17 +879,22 @@ function markUnscannedAssetsMissing() {
         }
     });
     
+    console.log(`Marking ${missingCount} assets as missing:`, missingAssets);
+    
     if (missingCount > 0) {
         // Update the assets in the database
-        updateMissingAssets();
+        updateMissingAssets(missingAssets);
         showScanMessage(`${missingCount} assets marked as missing`, 'warning');
     }
 }
 
-async function updateMissingAssets() {
-    const missingAssets = expectedAssets.filter(asset => !asset.found).map(asset => asset.id);
+async function updateMissingAssets(missingAssetIds) {
+    if (!missingAssetIds || missingAssetIds.length === 0) {
+        console.log("No assets to mark as missing");
+        return;
+    }
     
-    if (missingAssets.length === 0) return;
+    console.log(`Sending ${missingAssetIds.length} asset IDs to server for marking as missing:`, missingAssetIds);
     
     try {
         const response = await fetch('/api/mark-assets-missing', {
@@ -895,17 +903,51 @@ async function updateMissingAssets() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                assetIds: missingAssets
+                assetIds: missingAssetIds
             })
         });
         
+        const responseText = await response.text();
+        console.log("Server response:", responseText);
+        
+        let responseData;
+        try {
+            responseData = JSON.parse(responseText);
+        } catch (e) {
+            console.error("Failed to parse response as JSON:", e);
+            console.error("Raw response:", responseText);
+            return;
+        }
+        
         if (!response.ok) {
-            console.error('Failed to mark assets as missing:', await response.text());
+            console.error('Failed to mark assets as missing:', responseData);
+            showScanMessage(`Error marking assets as missing: ${responseData.message || 'Unknown error'}`, 'danger');
+        } else {
+            console.log(`Successfully marked ${responseData.processed_count || missingAssetIds.length} assets as missing`);
+            
+            // Confirm UI updates for all missing assets
+            expectedAssets.forEach(asset => {
+                if (missingAssetIds.includes(asset.id)) {
+                    asset.status = 'Missing';
+                    
+                    // Update status in the UI again to ensure consistency
+                    const row = document.getElementById(`expected-asset-${asset.id}`);
+                    if (row) {
+                        const statusCell = row.cells[4]; // Status is in 5th column (index 4)
+                        statusCell.innerHTML = '<span class="status-dot status-poor"></span> Missing';
+                    }
+                }
+            });
+            
+            // Optionally reload the page if needed to ensure all data is fresh
+            // setTimeout(() => window.location.reload(), 3000);
         }
     } catch (error) {
         console.error('Error marking assets as missing:', error);
+        showScanMessage(`Network error marking assets as missing: ${error.message}`, 'danger');
     }
 }
+
 
 /**
  * UI Helper Functions
