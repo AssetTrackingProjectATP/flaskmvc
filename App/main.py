@@ -11,6 +11,7 @@ from App.config import load_config
 
 
 from App.controllers import (
+    initialize,
     setup_jwt,
     add_auth_context
 )
@@ -42,6 +43,7 @@ def create_app(overrides={}):
     # Create app context
     app.app_context().push()
     
+    initialize()
     # Ensure default data exists (building, floor, and unknown room)
     with app.app_context():
         from App.controllers.initialize import ensure_defaults
