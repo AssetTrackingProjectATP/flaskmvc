@@ -1,15 +1,18 @@
+# render.yaml
 
 services:
 - type: web
   name: flask-postgres-api
   env: python
-  repo: https://github.com/uwidcit/flaskmvc.git
+  repo: https://github.com/uwidcit/flaskmvc.git # Make sure this is your repo URL
   plan: free
-  branch: main
-  healthCheckPath: /healthcheck
+  branch: main # Or your deployment branch
+  healthCheckPath: /health # Use your health check endpoint
   buildCommand: "pip install -r requirements.txt"
-  startCommand: "gunicorn wsgi:app"
+  # MODIFIED startCommand:
+  startCommand: "flask db upgrade && gunicorn -c gunicorn_config.py wsgi:app"
   envVars:
+  # ... (keep existing envVars including database connections) ...
   - fromGroup: flask-postgres-api-settings
   - key: POSTGRES_URL
     fromDatabase:
@@ -26,18 +29,19 @@ services:
   - key: POSTGRES_DB
     fromDatabase:
       name: flask-postgres-api-db
-      property: database 
+      property: database
 
 envVarGroups:
 - name: flask-postgres-api-settings
   envVars:
-  - key: ENV
+  - key: ENV # Ensure this is set
     value: production
   - key: FLASK_APP
     value: wsgi.py
-    
+  - key: SECRET_KEY # IMPORTANT: Generate a strong secret key for production
+    generateValue: true # Render can generate one for you
 
 databases:
 - name: flask-postgres-api-db
   plan: free
-  databaseName: mydb
+  databaseName: mydb # Make sure this matches POSTGRES_DB if not overridden
