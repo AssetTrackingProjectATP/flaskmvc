@@ -195,19 +195,30 @@ def bulk_mark_found_endpoint():
         return jsonify({'success': False, 'message': 'Invalid input. "assetIds" (list) required.'}), 400
 
     asset_ids = data['assetIds']
-    # Note: Bulk actions won't have individual notes here, add generic one if needed in controller
-    processed_count, error_count, errors = bulk_mark_assets_found(asset_ids, current_user.id)
+    notes = data.get('notes', '')
+    # Get the flag for skipping failed scan events
+    skip_failed_scan_events = data.get('skipFailedScanEvents', False)
+    
+    processed_count, error_count, errors = bulk_mark_assets_found(
+        asset_ids, 
+        current_user.id, 
+        notes, 
+        skip_failed_scan_events
+    )
 
-    if error_count == 0:
+    # Return success if any assets were processed, even with some errors
+    if processed_count > 0:
         return jsonify({
             'success': True,
             'message': f'{processed_count} asset(s) marked as found.',
-            'processed_count': processed_count
+            'processed_count': processed_count,
+            'error_count': error_count,
+            'errors': errors[:10] if errors else []  # Limit errors in response
         })
     else:
         return jsonify({
             'success': False,
-            'message': f'Processed {processed_count} asset(s), but {error_count} failed. See errors for details.',
+            'message': f'Failed to mark assets as found. See errors for details.',
             'processed_count': processed_count,
             'error_count': error_count,
             'errors': errors[:10] # Limit errors in response

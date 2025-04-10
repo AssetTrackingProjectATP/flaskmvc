@@ -517,11 +517,22 @@ def update_asset_details(asset_id, description, model, brand, serial_number, ass
 
 # --- NEW BULK ACTION CONTROLLERS ---
 
-def bulk_mark_assets_found(asset_ids, user_id, notes=""):
-    """Marks multiple assets as Found and returns them to their assigned rooms."""
+def bulk_mark_assets_found(asset_ids, user_id, notes="", skip_failed_scan_events=False):
+    """Marks multiple assets as Found and returns them to their assigned rooms.
+    
+    Args:
+        asset_ids: List of asset IDs to mark as found
+        user_id: ID of the user performing the action
+        notes: Optional notes to add to scan events
+        skip_failed_scan_events: If True, continue processing assets even if scan event creation fails
+    
+    Returns:
+        Tuple of (processed_count, error_count, errors list)
+    """
     processed_count = 0
     error_count = 0
     errors = []
+    
     if not user_id:
         if current_user:
              user_id = current_user.id
@@ -529,29 +540,76 @@ def bulk_mark_assets_found(asset_ids, user_id, notes=""):
              # Handle missing user context - maybe raise an error or use SYSTEM
              return 0, len(asset_ids), ["User context required for bulk action."]
 
-
     notes_prefix = f"Bulk Mark Found action by User {user_id}. "
     if notes:
         notes_prefix += f"Note: {notes}. "
 
-
+    # First update all assets in memory
+    assets_to_update = []
+    scan_events_to_add = []
+    
+    # Prepare all updates as a batch
     for asset_id in asset_ids:
-        # Call the single mark_asset_found function with return_to_room=True
-        # Pass the notes_prefix to be included in the scan event
-        result_asset = mark_asset_found(asset_id, user_id, return_to_room=True, notes_prefix=notes_prefix)
-
-        if result_asset:
-            processed_count += 1
-        else:
+        asset = get_asset(asset_id)
+        if not asset:
             error_count += 1
-            errors.append(f"Failed to mark asset {asset_id} as found.")
-            # No rollback needed here as single function handles its own commit/rollback
-
-    # No final commit needed here as each call to mark_asset_found commits individually
-
-    return processed_count, error_count, errors
-
-
+            errors.append(f"Asset {asset_id} not found")
+            continue
+            
+        # Store old status and location for changelog
+        old_status = asset.status
+        
+        # Set the asset as found and returned to its room
+        asset.last_located = asset.room_id  # Return to assigned room
+        asset.status = "Good"
+        asset.last_update = datetime.now()
+        
+        # Create scan event notes
+        scan_notes = f"{notes_prefix}Asset marked as Found and returned to assigned room. Previous status: {old_status}."
+        
+        # Prepare scan event data
+        scan_event_data = {
+            'asset_id': asset_id,
+            'user_id': user_id,
+            'room_id': asset.room_id,
+            'status': "Good",
+            'notes': scan_notes
+        }
+        
+        assets_to_update.append(asset)
+        scan_events_to_add.append(scan_event_data)
+    
+    # Now process everything in a single database transaction
+    try:
+        # Add all updated assets to the session
+        for asset in assets_to_update:
+            db.session.add(asset)
+            
+        # Try to create all scan events
+        for event_data in scan_events_to_add:
+            try:
+                add_scan_event(**event_data)
+                processed_count += 1
+            except Exception as e:
+                if skip_failed_scan_events:
+                    # Log the error but continue processing
+                    print(f"Warning: Failed to create scan event for Found asset {event_data['asset_id']}. Error: {str(e)}")
+                    errors.append(f"Scan event creation failed for asset {event_data['asset_id']}: {str(e)}")
+                    error_count += 1
+                else:
+                    # Re-raise the exception if we're not skipping failures
+                    raise
+        
+        # Commit all changes at once
+        db.session.commit()
+        print(f"Successfully marked {processed_count} assets as found")
+        return processed_count, error_count, errors
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error committing bulk mark-as-found: {e}")
+        errors.append(f"Database error: {str(e)}")
+        return 0, len(asset_ids), errors
+  
 def bulk_relocate_assets(asset_ids, new_room_id, user_id, notes=""):
     """Marks multiple assets as Found and relocates/reassigns them to a new room."""
     processed_count = 0

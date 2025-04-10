@@ -577,41 +577,206 @@ function showStatusMessage(title, message, type) {
 
 // --- NEW Bulk Action Functions ---
 
-// Function to handle bulk "Mark Found" action
 async function bulkMarkFound() {
     const assetIds = Array.from(selectedAssets);
     if (assetIds.length === 0) return;
 
+    // Show a confirmation with the count of selected assets
     if (!confirm(`Mark ${assetIds.length} selected asset(s) as Found and return to their assigned rooms?`)) {
         return;
     }
 
+    // Show processing indicator
+    const bulkMarkFoundBtn = document.getElementById('bulkMarkFoundBtn');
+    const originalBtnText = bulkMarkFoundBtn.innerHTML;
+    bulkMarkFoundBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Processing...';
+    bulkMarkFoundBtn.disabled = true;
+
     try {
+        console.log(`Sending bulk request for ${assetIds.length} assets:`, assetIds);
+        
+        // Send the request to the server
         const response = await fetch('/api/assets/bulk-mark-found', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ assetIds: assetIds }) // Send only IDs for this action
+            body: JSON.stringify({ 
+                assetIds: assetIds,
+                // Add a flag to indicate scan events can be skipped if they cause errors
+                skipFailedScanEvents: true
+            })
         });
 
-        const result = await response.json();
-
-        if (response.ok && result.success) {
+        // For debugging, log the raw response
+        const responseText = await response.text();
+        console.log("Raw server response:", responseText);
+        
+        // Try to parse the JSON response
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error("Failed to parse server response as JSON:", e);
             showStatusMessage(
-                'Bulk Action Success',
-                `${result.processed_count || assetIds.length} asset(s) marked as Found.`,
-                'success'
-            );
-            loadDiscrepancies(); // Reload list
-        } else {
-            showStatusMessage(
-                'Bulk Action Failed',
-                result.message || `Failed to mark ${assetIds.length} asset(s) as Found.`,
+                'Parsing Error',
+                'The server returned an invalid response. Please check the console for details.',
                 'danger'
             );
+            return;
+        }
+
+        if (response.ok) {
+            // Even with some errors, treat as success if some assets were processed
+            const processedCount = result.processed_count || 0;
+            
+            if (processedCount > 0) {
+                // Show success message, but note any errors
+                if (result.error_count && result.error_count > 0) {
+                    const message = `Successfully marked ${processedCount} of ${assetIds.length} assets as Found. ${result.error_count} assets had issues but may have been partially updated. See console for details.`;
+                    showStatusMessage('Partial Success', message, 'warning');
+                    
+                    // Log errors to console for debugging
+                    if (result.errors && result.errors.length > 0) {
+                        console.warn("Bulk operation completed with some errors:", result.errors);
+                    }
+                } else {
+                    // All successful
+                    const message = `All ${processedCount} selected asset(s) marked as Found.`;
+                    showStatusMessage('Bulk Action Success', message, 'success');
+                }
+                
+                // Reload the list to show updated status
+                setTimeout(() => {
+                    loadDiscrepancies();
+                }, 500);
+            } else {
+                // No assets were processed
+                const errorMsg = result.message || `Failed to mark any assets as Found.`;
+                showStatusMessage('Bulk Action Failed', errorMsg, 'danger');
+                
+                // Log detailed errors for debugging
+                if (result.errors && result.errors.length > 0) {
+                    console.error("Bulk operation errors:", result.errors);
+                }
+            }
+        } else {
+            // Server returned an error status
+            const errorMsg = result.message || `Failed to mark ${assetIds.length} asset(s) as Found.`;
+            console.error("Bulk operation failed:", errorMsg, result);
+            
+            // If there were any specific errors reported, show them
+            if (result.errors && result.errors.length > 0) {
+                const errorList = result.errors.slice(0, 3).join('<br>'); // Show first few errors
+                const additionalMsg = result.errors.length > 3 ? `<br>(${result.errors.length - 3} more errors not shown)` : '';
+                showStatusMessage('Bulk Action Failed', `${errorMsg}<br><small>${errorList}${additionalMsg}</small>`, 'danger');
+            } else {
+                showStatusMessage('Bulk Action Failed', errorMsg, 'danger');
+            }
         }
     } catch (error) {
         console.error('Error during bulk mark found:', error);
-        showStatusMessage('Error', 'An error occurred during the bulk action.', 'danger');
+        showStatusMessage('Error', 'An error occurred during the bulk action. Check the console for details.', 'danger');
+    } finally {
+        // Restore the button state
+        bulkMarkFoundBtn.innerHTML = originalBtnText;
+        bulkMarkFoundBtn.disabled = false;
+    }
+}
+
+// Similar improvements for bulk relocate execution
+async function executeBulkRelocate(newRoomId, notes) {
+    const assetIds = Array.from(selectedAssets);
+    if (assetIds.length === 0 || !newRoomId) return;
+
+    // Show processing state in the button
+    const confirmBtn = document.getElementById('confirmRelocationBtn');
+    const originalBtnText = confirmBtn.textContent;
+    confirmBtn.textContent = 'Processing...';
+    confirmBtn.disabled = true;
+
+    try {
+        console.log(`Sending bulk relocate request for ${assetIds.length} assets to room ${newRoomId}`);
+        
+        const response = await fetch('/api/assets/bulk-relocate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                assetIds: assetIds,
+                roomId: newRoomId,
+                notes: notes,
+                skipFailedScanEvents: true // Add this flag to handle scan event failures gracefully
+            })
+        });
+
+        const relocationModal = bootstrap.Modal.getInstance(document.getElementById('relocationModal'));
+        
+        // For debugging, log the raw response
+        const responseText = await response.text();
+        console.log("Raw server response for bulk relocate:", responseText);
+        
+        // Try to parse the JSON response
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error("Failed to parse server response as JSON:", e);
+            relocationModal.hide();
+            showStatusMessage(
+                'Parsing Error',
+                'The server returned an invalid response. Please check the console for details.',
+                'danger'
+            );
+            return;
+        }
+
+        // Hide modal regardless of outcome
+        relocationModal.hide();
+
+        if (response.ok) {
+            // Even with some errors, treat as success if some assets were processed
+            const processedCount = result.processed_count || 0;
+            
+            if (processedCount > 0) {
+                // Show success message, but note any errors
+                if (result.error_count && result.error_count > 0) {
+                    const message = `Successfully relocated ${processedCount} of ${assetIds.length} assets. ${result.error_count} assets had issues but may have been partially updated.`;
+                    showStatusMessage('Partial Success', message, 'warning');
+                } else {
+                    // All successful
+                    const message = `All ${processedCount} selected asset(s) marked as Found and relocated.`;
+                    showStatusMessage('Bulk Action Success', message, 'success');
+                }
+                
+                // Reload the list to show updated status
+                setTimeout(() => {
+                    loadDiscrepancies();
+                }, 500);
+            } else {
+                // No assets were processed
+                const errorMsg = result.message || `Failed to relocate any assets.`;
+                showStatusMessage('Bulk Action Failed', errorMsg, 'danger');
+            }
+        } else {
+            // Server returned an error status
+            const errorMsg = result.message || `Failed to relocate ${assetIds.length} asset(s).`;
+            console.error("Bulk operation failed:", errorMsg, result);
+            
+            // If there were any specific errors reported, show them
+            if (result.errors && result.errors.length > 0) {
+                const errorList = result.errors.slice(0, 3).join('<br>'); // Show first few errors
+                showStatusMessage('Bulk Action Failed', `${errorMsg}<br><small>${errorList}</small>`, 'danger');
+            } else {
+                showStatusMessage('Bulk Action Failed', errorMsg, 'danger');
+            }
+        }
+    } catch (error) {
+        console.error('Error during bulk relocate:', error);
+        const relocationModal = bootstrap.Modal.getInstance(document.getElementById('relocationModal'));
+        relocationModal.hide();
+        showStatusMessage('Error', 'An error occurred during the bulk relocation.', 'danger');
+    } finally {
+        // Restore the button state
+        confirmBtn.textContent = originalBtnText;
+        confirmBtn.disabled = false;
     }
 }
 
