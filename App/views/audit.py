@@ -63,21 +63,37 @@ def mark_missing():
     data = request.json
     
     if not data or 'assetIds' not in data:
-        return jsonify({'message': 'Invalid request data'}), 400
+        return jsonify({'success': False, 'message': 'Invalid request data: missing assetIds field'}), 400
     
     asset_ids = data['assetIds']
     
     if not isinstance(asset_ids, list):
-        return jsonify({'message': 'assetIds must be a list'}), 400
+        return jsonify({'success': False, 'message': 'assetIds must be a list'}), 400
+    
+    print(f"Marking {len(asset_ids)} assets as missing: {asset_ids}")
     
     # Pass the current user's ID
-    success = mark_assets_missing(asset_ids, current_user.id)
+    processed_count, error_count, errors = mark_assets_missing(asset_ids, current_user.id)
     
-    if not success:
-        return jsonify({'message': 'Failed to mark assets as missing'}), 500
+    print(f"Result: processed={processed_count}, errors={error_count}, error_details={errors}")
     
-    return jsonify({'message': f'{len(asset_ids)} assets marked as missing'})
-
+    if processed_count == 0:
+        return jsonify({
+            'success': False,
+            'message': f'Failed to mark assets as missing: {errors[0] if errors else "Unknown error"}',
+            'errors': errors[:10] if errors else [],
+            'processed_count': 0,
+            'error_count': error_count
+        }), 500
+    
+    return jsonify({
+        'success': True,
+        'message': f'{processed_count} assets marked as missing',
+        'processed_count': processed_count,
+        'error_count': error_count,
+        'errors': errors[:10] if errors else []
+    })
+    
 @audit_views.route('/api/update-asset-location', methods=['POST'])
 @jwt_required()
 def update_location():
