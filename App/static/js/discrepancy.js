@@ -44,7 +44,7 @@ async function loadDiscrepancies() {
         clearSelection(); // Clear selection on reload
         renderDiscrepancies(allDiscrepancies);
         updateCounters();
-        updateBulkActionBar(); // Ensure bar is hidden initially
+        updateBulkActionUI(); // New function to update the entire UI
     } catch (error) {
         console.error('Error loading discrepancies:', error);
         const discrepancyList = document.getElementById('discrepancy-list');
@@ -53,6 +53,8 @@ async function loadDiscrepancies() {
                 <strong>Error:</strong> Failed to load discrepancies. Please try again later.
             </div>
         `;
+        // Hide toolbar in case of error
+        document.getElementById('bulk-actions-toolbar').style.display = 'none';
     }
 }
 
@@ -79,6 +81,7 @@ async function loadRooms() {
 function renderDiscrepancies(discrepancies) {
     const discrepancyList = document.getElementById('discrepancy-list');
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const toolbar = document.getElementById('bulk-actions-toolbar');
 
     // Clear the list
     discrepancyList.innerHTML = '';
@@ -86,23 +89,22 @@ function renderDiscrepancies(discrepancies) {
     // Reset select all checkbox
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
-
-    if (discrepancies.length === 0) {
+    // Handle empty state
+    if (!discrepancies || discrepancies.length === 0) {
+        // Show empty message
         discrepancyList.innerHTML = `
             <div class="alert alert-success">
                 No discrepancies found with the current filter.
             </div>
         `;
-         // Hide select all if no items
-        const selectAllContainer = document.querySelector('.select-all-container');
-        if (selectAllContainer) selectAllContainer.style.display = 'none';
+        
+        // Hide toolbar when no items
+        if (toolbar) toolbar.style.display = 'none';
         return;
     } else {
-         // Show select all if items exist
-        const selectAllContainer = document.querySelector('.select-all-container');
-        if (selectAllContainer) selectAllContainer.style.display = 'block';
+        // Show toolbar when items exist
+        if (toolbar) toolbar.style.display = 'flex';
     }
-
 
     // Sort discrepancies - missing first, then misplaced
     discrepancies.sort((a, b) => {
@@ -253,6 +255,23 @@ function renderDiscrepancies(discrepancies) {
     checkSelectAllState(); // Update select all checkbox based on current view
 }
 
+// Function to update the complete bulk action UI based on data state
+function updateBulkActionUI() {
+    const toolbar = document.getElementById('bulk-actions-toolbar');
+    
+    // Should the toolbar be visible at all?
+    if (!allDiscrepancies || allDiscrepancies.length === 0) {
+        // No discrepancies, hide toolbar
+        toolbar.style.display = 'none';
+        return;
+    }
+    
+    // We have discrepancies, show toolbar
+    toolbar.style.display = 'flex';
+    
+    // Now update the selection-related elements
+    updateBulkActionButtons();
+}
 
 // Function to handle individual checkbox changes
 function handleCheckboxChange(event) {
@@ -264,14 +283,14 @@ function handleCheckboxChange(event) {
     } else {
         selectedAssets.delete(assetId);
     }
-    updateBulkActionBar();
-    checkSelectAllState(); // Check if Select All should be checked/unchecked
+    updateBulkActionButtons();
+    checkSelectAllState();
 }
 
 // Function to handle Select All checkbox change
 function handleSelectAllChange(event) {
     const isChecked = event.target.checked;
-    const visibleCheckboxes = document.querySelectorAll('.discrepancy-checkbox:not([style*="display: none"])'); // Check only visible
+    const visibleCheckboxes = document.querySelectorAll('.discrepancy-checkbox:not([style*="display: none"])');
 
     visibleCheckboxes.forEach(checkbox => {
         checkbox.checked = isChecked;
@@ -282,7 +301,47 @@ function handleSelectAllChange(event) {
             selectedAssets.delete(assetId);
         }
     });
-    updateBulkActionBar();
+    updateBulkActionButtons();
+}
+
+// Function to update the bulk action buttons state
+function updateBulkActionButtons() {
+    // Get the selection count
+    const numSelected = selectedAssets.size;
+    
+    // Update the selection counter
+    const selectionCount = document.getElementById('selection-count');
+    if (selectionCount) {
+        selectionCount.textContent = numSelected === 1 ? "1 selected" : `${numSelected} selected`;
+        
+        // Show/hide the selection count based on selection
+        if (numSelected > 0) {
+            selectionCount.classList.add('active');
+        } else {
+            selectionCount.classList.remove('active');
+        }
+    }
+    
+    // Update the toolbar highlight
+    const toolbar = document.getElementById('bulk-actions-toolbar');
+    if (toolbar) {
+        if (numSelected > 0) {
+            toolbar.classList.add('active');
+        } else {
+            toolbar.classList.remove('active');
+        }
+    }
+    
+    // Enable/disable action buttons
+    const bulkMarkFoundBtn = document.getElementById('bulkMarkFoundBtn');
+    const bulkRelocateBtn = document.getElementById('bulkRelocateBtn');
+    const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
+    
+    const hasSelection = numSelected > 0;
+    
+    if (bulkMarkFoundBtn) bulkMarkFoundBtn.disabled = !hasSelection;
+    if (bulkRelocateBtn) bulkRelocateBtn.disabled = !hasSelection;
+    if (cancelSelectionBtn) cancelSelectionBtn.disabled = !hasSelection;
 }
 
 // Function to update the state of the "Select All" checkbox
@@ -314,21 +373,6 @@ function checkSelectAllState() {
     }
 }
 
-
-// Function to update the bulk actions bar
-function updateBulkActionBar() {
-    const bar = document.getElementById('bulk-actions-bar');
-    const countSpan = document.getElementById('selected-count');
-    const numSelected = selectedAssets.size;
-
-    if (numSelected > 0) {
-        countSpan.textContent = numSelected;
-        bar.style.display = 'block'; // Use block or flex depending on final styling
-    } else {
-        bar.style.display = 'none';
-    }
-}
-
 // Function to clear selection
 function clearSelection() {
     selectedAssets.clear();
@@ -338,9 +382,8 @@ function clearSelection() {
         selectAllCheckbox.checked = false;
         selectAllCheckbox.indeterminate = false;
     }
-    updateBulkActionBar();
+    updateBulkActionButtons();
 }
-
 
 // Function to filter discrepancy items
 function filterDiscrepancies(type) {
@@ -723,22 +766,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-     // Event listeners for BULK action buttons
-    const bulkMarkFoundButton = document.getElementById('bulkMarkFoundBtn');
-    if (bulkMarkFoundButton) {
-        bulkMarkFoundButton.addEventListener('click', bulkMarkFound);
+    // Event listeners for BULK action buttons - Updated to use new button IDs
+    const bulkMarkFoundBtn = document.getElementById('bulkMarkFoundBtn');
+    if (bulkMarkFoundBtn) {
+        bulkMarkFoundBtn.addEventListener('click', bulkMarkFound);
     }
 
-    const bulkRelocateButton = document.getElementById('bulkRelocateBtn');
-    if (bulkRelocateButton) {
-        bulkRelocateButton.addEventListener('click', bulkRelocate);
+    const bulkRelocateBtn = document.getElementById('bulkRelocateBtn');
+    if (bulkRelocateBtn) {
+        bulkRelocateBtn.addEventListener('click', bulkRelocate);
     }
 
-    const cancelSelectionButton = document.getElementById('cancelSelectionBtn');
-    if (cancelSelectionButton) {
-        cancelSelectionButton.addEventListener('click', clearSelection);
+    const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
+    if (cancelSelectionBtn) {
+        cancelSelectionBtn.addEventListener('click', clearSelection);
     }
-
 
     // Confirm button in Relocation modal (Handles both single and bulk)
     document.getElementById('confirmRelocationBtn').addEventListener('click', function(event) {
@@ -762,12 +804,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Reset mode after execution
         event.target.dataset.mode = '';
-
     });
 
-     // Select All checkbox listener
+    // Select All checkbox listener
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', handleSelectAllChange);
     }
+    
+    // Initialize the buttons state
+    updateBulkActionButtons();
+    
+    // Initially hide the toolbar until we have data
+    const toolbar = document.getElementById('bulk-actions-toolbar');
+    if (toolbar) toolbar.style.display = 'none';
 });
