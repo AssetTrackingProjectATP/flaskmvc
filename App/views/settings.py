@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, jsonify, request, send_file
 from flask_jwt_extended import jwt_required, current_user
 from App.controllers.asset import get_all_assets_json, upload_csv
-from App.controllers.user import update_user
+from App.controllers.user import create_user, get_all_users_json, update_user
 from App.controllers.building import (
     create_building, get_building, get_all_building_json, 
     edit_building, delete_building
@@ -636,3 +636,53 @@ def delete_room_endpoint(room_id):
             'success': False, 
             'message': 'Failed to delete room. It may be in use by assets.'
         }), 400
+
+@settings_views.route('/api/users/all', methods=['GET'])
+@jwt_required()
+def get_all_users_endpoint():
+    """API endpoint to get all users for management"""
+    try:
+        users = get_all_users_json()
+        return jsonify(users)
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error retrieving users: {str(e)}'}), 500
+
+@settings_views.route('/api/users/create', methods=['POST'])
+@jwt_required()
+def create_new_user():
+    """API endpoint to create a new user"""
+    data = request.json
+    
+    if not data or 'username' not in data or 'email' not in data or 'password' not in data:
+        return jsonify({'success': False, 'message': 'Username, email, and password are required'}), 400
+    
+    username = data['username'].strip()
+    email = data['email'].strip()
+    password = data['password']
+    
+    if not username or not email or not password:
+        return jsonify({'success': False, 'message': 'Username, email, and password cannot be empty'}), 400
+    
+    # Check if email is already in use
+    existing_users = get_all_users_json()
+    if any(user.get('email') == email for user in existing_users):
+        return jsonify({'success': False, 'message': 'Email is already in use'}), 400
+    
+    # Create the new user
+    try:
+        user = create_user(email, username, password)
+        
+        if user:
+            return jsonify({
+                'success': True,
+                'message': 'User created successfully',
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email
+                }
+            })
+        else:
+            return jsonify({'success': False, 'message': 'Failed to create user'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error creating user: {str(e)}'}), 500

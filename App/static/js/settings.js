@@ -340,6 +340,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initAccountSettings();
     initCSVUploads();
     initLocationManagement();
+    const saveUserBtn = document.getElementById('saveUserBtn');
+    if (saveUserBtn) {
+        saveUserBtn.addEventListener('click', saveUser);
+    }
 });
 
 // ==========================================
@@ -562,6 +566,10 @@ function initLocationManagement() {
                 populateBuildingSelect('buildingSelect');
             } else if (targetTab === 'rooms-tab') {
                 populateBuildingSelect('floorBuildingSelect');
+            }
+
+            if (targetTab === 'users-tab') {
+                loadUsers();
             }
         });
     }
@@ -1092,4 +1100,112 @@ function resetBuildingModal() {
     // Show save button, hide update button
     document.getElementById('saveBuildingBtn').style.display = 'block';
     document.getElementById('updateBuildingBtn').style.display = 'none';
+}
+
+async function loadUsers() {
+    const usersTree = document.getElementById('usersTree');
+    
+    try {
+        usersTree.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        const response = await fetch('/api/users/all');
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch users');
+        }
+        
+        const users = await response.json();
+        
+        if (users.length === 0) {
+            usersTree.innerHTML = '<div class="text-center py-4"><p>No users found. Add your first user.</p></div>';
+            return;
+        }
+        
+        // Render users list
+        let usersHtml = '';
+        
+        users.forEach(user => {
+            usersHtml += `
+                <div class="location-item" data-id="${user.id}">
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <div>
+                            <strong>${user.username}</strong>
+                            <div class="text-muted small">${user.email}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        usersTree.innerHTML = usersHtml;
+        
+    } catch (error) {
+        console.error('Error loading users:', error);
+        usersTree.innerHTML = '<div class="alert alert-danger">Error loading users. Please try again.</div>';
+        cleanupModals();
+    }
+}
+
+// Function to save a new user
+async function saveUser() {
+    const username = document.getElementById('newUsername').value.trim();
+    const email = document.getElementById('newEmail').value.trim();
+    const password = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmNewPassword').value;
+    
+    // Basic validation
+    if (!username || !email || !password) {
+        showStatusMessage('Error', 'All fields are required.', 'danger');
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        showStatusMessage('Error', 'Passwords do not match.', 'danger');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/users/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username: username,
+                email: email,
+                password: password
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Close the modal
+            bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+            
+            // Clear the form
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newEmail').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmNewPassword').value = '';
+            
+            // Show success message
+            showStatusMessage('Success', 'User created successfully.', 'success');
+            
+            // Reload users list
+            loadUsers();
+        } else {
+            showStatusMessage('Error', result.message || 'Failed to create user.', 'danger');
+        }
+    } catch (error) {
+        console.error('Error creating user:', error);
+        showStatusMessage('Error', 'An error occurred while creating the user.', 'danger');
+        cleanupModals();
+    }
 }
