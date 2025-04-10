@@ -316,6 +316,15 @@ async function deleteRoom(roomId, roomName) {
 
 // Utility Functions
 function showStatusMessage(title, message, type) {
+    // Make sure any other modals are closed first
+    const otherModals = document.querySelectorAll('.modal');
+    otherModals.forEach(modal => {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) {
+            bsModal.hide();
+        }
+    });
+    
     const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
     const statusTitle = document.getElementById('statusTitle');
     const statusMessage = document.getElementById('statusMessage');
@@ -334,7 +343,9 @@ function showStatusMessage(title, message, type) {
     }
     
     statusModal.show();
-}// Settings Page JavaScript
+}
+
+// Settings Page JavaScript
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize all components
     initAccountSettings();
@@ -1154,23 +1165,51 @@ async function loadUsers() {
 
 // Function to save a new user
 async function saveUser() {
+    // Add console logs to debug what values we're getting
+    console.log("Save user function called");
+    
     const username = document.getElementById('newUsername').value.trim();
     const email = document.getElementById('newEmail').value.trim();
     const password = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmNewPassword').value;
     
+    console.log("Form values:", { 
+        username: username, 
+        email: email, 
+        password: password ? "***" : "", 
+        confirmPassword: confirmPassword ? "***" : "" 
+    });
+    
     // Basic validation
     if (!username || !email || !password) {
-        showStatusMessage('Error', 'All fields are required.', 'danger');
+        const userModal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+        if (userModal) {
+            userModal.hide();
+        }
+        
+        // Small delay to avoid modal conflicts
+        setTimeout(() => {
+            showStatusMessage('Error', 'All fields are required.', 'danger');
+        }, 500);
         return;
     }
     
     if (password !== confirmPassword) {
-        showStatusMessage('Error', 'Passwords do not match.', 'danger');
+        const userModal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+        if (userModal) {
+            userModal.hide();
+        }
+        
+        // Small delay to avoid modal conflicts
+        setTimeout(() => {
+            showStatusMessage('Error', 'Passwords do not match.', 'danger');
+        }, 500);
         return;
     }
     
     try {
+        console.log("Submitting user data to server...");
+        
         const response = await fetch('/api/users/create', {
             method: 'POST',
             headers: {
@@ -1183,29 +1222,48 @@ async function saveUser() {
             })
         });
         
+        console.log("Server response status:", response.status);
         const result = await response.json();
+        console.log("Server response:", result);
         
-        if (response.ok) {
-            // Close the modal
-            bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
-            
-            // Clear the form
-            document.getElementById('newUsername').value = '';
-            document.getElementById('newEmail').value = '';
-            document.getElementById('newPassword').value = '';
-            document.getElementById('confirmNewPassword').value = '';
-            
-            // Show success message
-            showStatusMessage('Success', 'User created successfully.', 'success');
-            
-            // Reload users list
-            loadUsers();
-        } else {
-            showStatusMessage('Error', result.message || 'Failed to create user.', 'danger');
+        // Hide the user modal first
+        const userModal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+        if (userModal) {
+            userModal.hide();
         }
+        
+        // Wait for the user modal to completely hide
+        setTimeout(() => {
+            if (response.ok) {
+                // Clear the form
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newEmail').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmNewPassword').value = '';
+                
+                // Show success message
+                showStatusMessage('Success', 'User created successfully.', 'success');
+                
+                // Reload users list
+                loadUsers();
+            } else {
+                showStatusMessage('Error', result.message || 'Failed to create user.', 'danger');
+            }
+        }, 500); // 500ms delay
     } catch (error) {
         console.error('Error creating user:', error);
-        showStatusMessage('Error', 'An error occurred while creating the user.', 'danger');
+        
+        // Hide the user modal first
+        const userModal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+        if (userModal) {
+            userModal.hide();
+        }
+        
+        // Wait for the user modal to hide
+        setTimeout(() => {
+            showStatusMessage('Error', 'An error occurred while creating the user.', 'danger');
+        }, 500);
+        
         cleanupModals();
     }
 }
