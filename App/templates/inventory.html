@@ -14,72 +14,149 @@
             width: calc(100% - 250px);
             box-sizing: border-box;
         }
+        /* Main container layout */
         .search-container {
             display: flex;
-            align-items: center;
+            flex-direction: row;
             justify-content: space-between;
+            align-items: flex-start; /* Align items to the top */
             margin-bottom: 20px;
             width: 100%;
         }
         
+        /* Left side with search */
+        .search-area {
+            display: flex;
+            flex-direction: column;
+            width: 70%;
+        }
+        
+        /* Search bar with button */
         .search-bar {
             display: flex;
-            width: 500px;
-            margin-right: auto; /* Force to left */
+            width: 100%;
+            max-width: 300px;
         }
         
-        .action-container {
-            margin-left: auto; /* Force to right */
-        }
-        
+        /* Search input */
         .search-bar input {
             border-top-right-radius: 0;
             border-bottom-right-radius: 0;
+            height: 42px;
         }
         
+        /* Search button */
         .search-button {
             border-top-left-radius: 0;
             border-bottom-left-radius: 0;
+            width: 50px;
+            background-color: var(--primary-blue);
+            border-color: var(--primary-blue);
         }
         
-        .add-asset-btn {
-            background-color: var(--success-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            text-decoration: none;
+        .search-button:hover {
+            background-color: #0069d9;
+            border-color: #0062cc;
+        }
+        
+        .search-button:focus {
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        /* Search filters row */
+        .search-filters {
             display: flex;
             align-items: center;
-            gap: 6px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        /* Search column dropdown container */
+        .search-by {
+            display: flex;
+            align-items: center;
+            margin-right: 12px;
+        }
+        
+        .search-by label {
+            margin-right: 8px;
+            font-size: 0.9rem;
+            color: #6c757d;
+            white-space: nowrap;
+        }
+        
+        .search-by select {
+            min-width: 120px;
+        }
+        
+        /* Clear search link */
+        .clear-search {
+            color: var(--primary-blue);
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s, color 0.2s;
+            margin-right: 12px;
+        }
+        
+        .clear-search:hover {
+            background-color: rgba(0, 122, 255, 0.1);
+            text-decoration: none;
+            color: #0056b3; /* Slightly darker blue on hover */
+        }
+        
+        .clear-search:focus {
+            outline: none;
+            box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.15);
+        }
+        
+        /* Filter buttons container */
+        .filter-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        /* Filter buttons */
+        .filter-btn {
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .filter-btn:hover {
+            background-color: #e9ecef;
+            border-color: #ced4da;
+        }
+        
+        .filter-btn.active {
+            background-color: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+        
+        .filter-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.25);
+        }
+        
+        /* Add asset button */
+        /* Action buttons container on right side */
+        .action-buttons {
+            display: flex;
+            align-items: flex-start; /* Align to top */
+            height: auto;
         }
         
         .add-asset-btn:hover {
-            background-color: #218838;
-            color: white;
-        }
-       
-        .action-container {
-            margin-left: auto; /* Force to right */
-            display: flex;
-            gap: 10px; /* Adds space between buttons */
-        }
-
-        .add-csv-btn {
-            background-color: var(--primary-color, #0d6efd); /* Uses bootstrap primary color as fallback */
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .add-csv-btn:hover {
-            background-color: #0a58ca; /* Slightly darker blue on hover */
-            color: white;
+            color: #218838;
         }
     </style>
 </head>
@@ -107,13 +184,47 @@
         <h2 class="mb-4">Asset Inventory</h2>
         
         <div class="search-container">
-            <div class="search-bar">
-                <input type="text" class="form-control" id="searchInput" placeholder="Search assets...">
-                <button class="btn btn-primary search-button" type="button">
-                    <i class="bi bi-search"></i>
-                </button>
+            <div class="search-area">
+                <!-- Search bar -->
+                <div class="search-bar">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search assets...">
+                    <button class="btn btn-primary search-button" type="button">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+                
+                <!-- Search filters row -->
+                <div class="search-filters">
+                    <!-- Search column dropdown -->
+                    <div class="search-by">
+                        <label for="searchColumn">Search by:</label>
+                        <select class="form-select form-select-sm" id="searchColumn">
+                            <option value="all" selected>All Columns</option>
+                            <option value="description">Item</option>
+                            <option value="id">Asset Tag</option>
+                            <option value="model">Class</option>
+                            <option value="room_name">Location</option>
+                            <option value="status">Condition</option>
+                            <option value="assignee_name">Assignee</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Clear search link -->
+                    <a href="#" class="clear-search" id="clearSearch">Clear search</a>
+                    
+                    <!-- Filter buttons -->
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" data-filter="all">All (20)</button>
+                        <button class="filter-btn" data-filter="Good">Good (2)</button>
+                        <button class="filter-btn" data-filter="Misplaced">Misplaced</button>
+                        <button class="filter-btn" data-filter="Missing">Missing (2)</button>
+                        <button class="filter-btn" data-filter="Lost">Lost (2)</button>
+                    </div>
+                </div>
             </div>
-            <div class="action-container">
+            
+            <!-- Add asset button at the same height as the search bar -->
+            <div class="action-buttons">
                 <a href="/add-asset" class="add-asset-btn">
                     <i class="bi bi-plus-lg"></i> Add Asset
                 </a>
