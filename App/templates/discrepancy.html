@@ -240,111 +240,175 @@
             .action-button {
                 width: 100%;
             }
-        }
-    </style>
-</head>
-<body>
-    <div class="sidebar">
-        <div class="profile-section">
-            <img src="{{ url_for('static', filename='images/profile_icon.png') }}" alt="Profile" class="profile-image">
-            <h5 class="mb-1">{{current_user.username}}</h5>
-            <small class="text-muted">{{current_user.email}}</small>
-        </div>
-
-        <nav>
-            <a href="/inventory" class="nav-item">Inventory</a>
-            <a href="/audit" class="nav-item">Area Audit</a>
-            <a href="/discrepancy-report" class="nav-item active">Discrepancy Report</a>
-        </nav>
-        
-        <div class="sidebar-bottom">
-            <a href="/settings" class="nav-item">Settings</a>
-            <a href="/logout" class="nav-item text-danger">Log Out</a>
-        </div>
-    </div>
-
-    <div class="content-area">
-        <h2 class="mb-4">Discrepancy Report</h2>
-        
-        <div class="filter-section">
-            <a href="#" class="filter-badge Good" id="filter-all" onclick="filterDiscrepancies('all'); return false;">
-                All <span class="count-badge">0</span>
-            </a>
-            <a href="#" class="filter-badge" id="filter-missing" onclick="filterDiscrepancies('missing'); return false;">
-                Missing <span class="count-badge">0</span>
-            </a>
-            <a href="#" class="filter-badge" id="filter-misplaced" onclick="filterDiscrepancies('misplaced'); return false;">
-                Misplaced <span class="count-badge">0</span>
-            </a>
-        </div>
-        
-        <div id="discrepancy-list">
-            <!-- Discrepancy items will be loaded here dynamically -->
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-3">Loading discrepancies...</p>
+            .discrepancy-item {
+                /* ... existing styles ... */
+                padding-left: 15px; /* Make space for checkbox */
+            }
+    
+            .discrepancy-checkbox-container {
+                margin-right: 15px;
+                display: flex;
+                align-items: center;
+            }
+    
+            #bulk-actions-bar {
+                position: sticky;
+                bottom: 0;
+                left: 0; /* Adjust based on sidebar width */
+                width: 100%; /* Adjust based on sidebar width */
+                background-color: #343a40; /* Dark background */
+                color: white;
+                padding: 10px 20px;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+                display: none; /* Hidden by default */
+                z-index: 1000;
+                margin-left: -2rem; /* Counteract content-area padding */
+                margin-right: -2rem; /* Counteract content-area padding */
+            }
+    
+            #bulk-actions-bar .btn {
+                margin-left: 10px;
+            }
+    
+            .select-all-container {
+                margin-bottom: 15px;
+                padding-left: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <!-- Sidebar content unchanged -->
+            <div class="profile-section">
+                <img src="{{ url_for('static', filename='images/profile_icon.png') }}" alt="Profile" class="profile-image">
+                <h5 class="mb-1">{{current_user.username}}</h5>
+                <small class="text-muted">{{current_user.email}}</small>
+            </div>
+    
+            <nav>
+                <a href="/inventory" class="nav-item">Inventory</a>
+                <a href="/audit" class="nav-item">Area Audit</a>
+                <a href="/discrepancy-report" class="nav-item active">Discrepancy Report</a>
+            </nav>
+    
+            <div class="sidebar-bottom">
+                <a href="/settings" class="nav-item">Settings</a>
+                <a href="/logout" class="nav-item text-danger">Log Out</a>
             </div>
         </div>
-    </div>
-
-    <!-- Modal for Relocation -->
-    <div class="modal fade" id="relocationModal" tabindex="-1" aria-labelledby="relocationModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="relocationModalLabel">Asset Found & Relocated</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    
+        <div class="content-area">
+            <h2 class="mb-4">Discrepancy Report</h2>
+    
+            <div class="filter-section">
+                 <a href="#" class="filter-badge Good" id="filter-all" onclick="filterDiscrepancies('all'); return false;">
+                    All <span class="count-badge">0</span>
+                </a>
+                <a href="#" class="filter-badge" id="filter-missing" onclick="filterDiscrepancies('missing'); return false;">
+                    Missing <span class="count-badge">0</span>
+                </a>
+                <a href="#" class="filter-badge" id="filter-misplaced" onclick="filterDiscrepancies('misplaced'); return false;">
+                    Misplaced <span class="count-badge">0</span>
+                </a>
+            </div>
+    
+            <!-- Select All Checkbox -->
+            <div class="select-all-container form-check">
+                <input class="form-check-input" type="checkbox" value="" id="selectAllCheckbox">
+                <label class="form-check-label" for="selectAllCheckbox">
+                    Select All Visible
+                </label>
+            </div>
+    
+            <div id="discrepancy-list">
+                <!-- Discrepancy items will be loaded here dynamically -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Loading discrepancies...</p>
                 </div>
-                <div class="modal-body">
-                    <p>Select the new location for this asset:</p>
-                    <p class="asset-info mb-3 fw-bold"></p>
-                    
-                    <div class="form-group mb-3">
-                        <label for="roomSelect" class="form-label">New Location:</label>
-                        <select class="form-select" id="roomSelect" required>
-                            <option value="">Select a room...</option>
-                            <!-- Rooms will be populated dynamically -->
-                        </select>
-                        <div class="form-text">
-                            <span id="locationUpdateText">The asset will be marked as Found and its assigned location will be updated to the selected room.</span>
+            </div>
+    
+            <!-- Bulk Actions Bar -->
+            <div id="bulk-actions-bar">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span id="selected-count">0</span> item(s) selected
+                    </div>
+                    <div>
+                        <button class="btn btn-success btn-sm" id="bulkMarkFoundBtn">
+                            <i class="bi bi-check-circle me-1"></i> Mark Found
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="bulkRelocateBtn">
+                            <i class="bi bi-geo-alt me-1"></i> Found & Relocate
+                        </button>
+                        <button class="btn btn-secondary btn-sm" id="cancelSelectionBtn">
+                            <i class="bi bi-x-lg me-1"></i> Cancel Selection
+                        </button>
+                    </div>
+                </div>
+            </div>
+    
+        </div>
+    
+        <!-- Modal for Relocation (will be reused/adapted) -->
+        <div class="modal fade" id="relocationModal" tabindex="-1" aria-labelledby="relocationModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="relocationModalLabel">Asset Found & Relocated</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Text updated dynamically for single/bulk -->
+                        <p class="asset-info mb-3 fw-bold"></p>
+                        <p id="relocationInfoText"></p>
+    
+                        <div class="form-group mb-3">
+                            <label for="roomSelect" class="form-label">New Location:</label>
+                            <select class="form-select" id="roomSelect" required>
+                                <option value="">Select a room...</option>
+                                <!-- Rooms will be populated dynamically -->
+                            </select>
+                            <div class="form-text">
+                                <span id="locationUpdateText">The asset(s) will be marked as Found and assigned location(s) updated.</span>
+                            </div>
+                        </div>
+    
+                        <div class="form-group mb-3">
+                            <label for="relocationNotes" class="form-label">Notes (optional):</label>
+                            <textarea class="form-control" id="relocationNotes" rows="3" placeholder="Add notes for this action..."></textarea>
                         </div>
                     </div>
-                    
-                    <!-- New notes field -->
-                    <div class="form-group mb-3">
-                        <label for="relocationNotes" class="form-label">Notes (optional):</label>
-                        <textarea class="form-control" id="relocationNotes" rows="3" placeholder="Add any additional information about this relocation..."></textarea>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="confirmRelocationBtn">Confirm</button>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="confirmRelocationBtn">Confirm Relocation</button>
-                </div>
             </div>
         </div>
-    </div>
     
-    <!-- Modal for displaying status messages -->
-    <div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="statusTitle">Status Update</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="statusMessage">
-                    <!-- Status message will be inserted here -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        <!-- Status Modal (unchanged) -->
+        <div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
+            <!-- ... modal content ... -->
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="statusTitle">Status Update</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="statusMessage">
+                        <!-- Status message will be inserted here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/discrepancy.js') }}"></script>
-</body>
-</html>
+    
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="{{ url_for('static', filename='js/discrepancy.js') }}"></script>
+    </body>
+    </html>
