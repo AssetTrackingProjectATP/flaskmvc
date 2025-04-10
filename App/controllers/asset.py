@@ -286,6 +286,10 @@ def mark_assets_missing(asset_ids, user_id=None):
         else:
             user_id = "SYSTEM" # Or raise error if user is required
 
+    # Collect all assets to update first to ensure batch processing works correctly
+    assets_to_update = []
+    scan_events_to_add = []
+
     for asset_id in asset_ids:
         asset = get_asset(asset_id)
         if asset:
@@ -293,33 +297,44 @@ def mark_assets_missing(asset_ids, user_id=None):
                 old_status = asset.status
                 asset.status = "Missing"
                 asset.last_update = datetime.now()
+                # Don't change last_located for Missing assets
 
+                # Create scan event data
                 notes = f"Asset marked as Missing during audit. Previous status: {old_status}."
-                scan_event = add_scan_event(
-                    asset_id=asset_id,
-                    user_id=user_id,
-                    room_id=asset.room_id, # Log against the assigned room
-                    status="Missing",
-                    notes=notes
-                )
-                if not scan_event:
-                     print(f"Warning: Failed to log scan event for missing asset {asset_id}")
+                scan_event_data = {
+                    'asset_id': asset_id,
+                    'user_id': user_id,
+                    'room_id': asset.room_id, # Log against the assigned room
+                    'status': "Missing",
+                    'notes': notes
+                }
+                
+                # Add to collections for batch processing
+                assets_to_update.append(asset)
+                scan_events_to_add.append(scan_event_data)
                 processed_count += 1
             else:
                 # Optionally log that "Lost" asset was skipped
                 print(f"Info: Asset {asset_id} already marked as Lost, skipping.")
                 error_count += 1
                 errors.append(f"Asset {asset_id} already Lost.")
-
-
         else:
             errors.append(f"Asset {asset_id} not found.")
             error_count += 1
 
-
     try:
         if processed_count > 0:
-             db.session.commit()
+            # Explicitly add all assets to the session
+            for asset in assets_to_update:
+                db.session.add(asset)
+                
+            # Create all scan events
+            for event_data in scan_events_to_add:
+                add_scan_event(**event_data)
+                
+            # Commit all changes at once
+            db.session.commit()
+            print(f"Successfully marked {processed_count} assets as missing")
         return processed_count, error_count, errors
     except Exception as e:
         db.session.rollback()
@@ -327,7 +342,6 @@ def mark_assets_missing(asset_ids, user_id=None):
         # Add a general error if commit fails
         errors.append(f"Database commit error: {e}")
         return 0, len(asset_ids), errors # Assume all failed if commit fails
-
 # --- (get_assets_by_status, get_discrepant_assets remain the same) ---
 def get_assets_by_status(status):
     assets = Asset.query.filter_by(status=status).all()
