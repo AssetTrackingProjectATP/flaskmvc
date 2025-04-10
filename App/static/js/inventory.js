@@ -1,3 +1,9 @@
+// Global variables to store state
+let allAssets = [];
+let filteredAssets = [];
+let currentFilter = 'all';
+let currentSearchColumn = 'all';
+
 // Function to load assets from the backend
 async function loadAssets() {
     try {
@@ -6,13 +12,86 @@ async function loadAssets() {
             throw new Error('Failed to fetch assets');
         }
         
-        const assets = await response.json();
-        displayAssets(assets);
+        allAssets = await response.json();
+        filteredAssets = [...allAssets];
+        applyFilters();
     } catch (error) {
         console.error('Error loading assets:', error);
         document.getElementById('assetTableBody').innerHTML = 
             '<tr><td colspan="8" class="text-center">Error loading assets. Please try again later.</td></tr>';
     }
+}
+
+// Function to apply both status filters and search
+function applyFilters() {
+    // First filter by status
+    let statusFiltered = allAssets;
+    
+    if (currentFilter !== 'all') {
+        statusFiltered = allAssets.filter(asset => asset.status === currentFilter);
+    }
+    
+    // Then apply search within the status filtered results
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    
+    if (searchTerm) {
+        if (currentSearchColumn === 'all') {
+            // Search in all columns
+            filteredAssets = statusFiltered.filter(asset => {
+                return Object.values(asset).some(value => 
+                    value && value.toString().toLowerCase().includes(searchTerm)
+                );
+            });
+        } else {
+            // Search in specific column
+            filteredAssets = statusFiltered.filter(asset => {
+                return asset[currentSearchColumn] && 
+                       asset[currentSearchColumn].toString().toLowerCase().includes(searchTerm);
+            });
+        }
+    } else {
+        // No search term, just use status filtered results
+        filteredAssets = statusFiltered;
+    }
+    
+    // Update the display
+    displayAssets(filteredAssets);
+    
+    // Update filter button counts
+    updateFilterCounts();
+}
+
+// Function to update the count badges on filter buttons
+function updateFilterCounts() {
+    const allCount = allAssets.length;
+    const goodCount = allAssets.filter(asset => asset.status === 'Good').length;
+    const misplacedCount = allAssets.filter(asset => asset.status === 'Misplaced').length;
+    const missingCount = allAssets.filter(asset => asset.status === 'Missing').length;
+    const lostCount = allAssets.filter(asset => asset.status === 'Lost').length;
+    
+    // Update the filter buttons if they have count badges
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        const filter = btn.dataset.filter;
+        let count = 0;
+        
+        switch(filter) {
+            case 'all': count = allCount; break;
+            case 'Good': count = goodCount; break;
+            case 'Misplaced': count = misplacedCount; break;
+            case 'Missing': count = missingCount; break;
+            case 'Lost': count = lostCount; break;
+        }
+        
+        // If the button already has a count badge, update it
+        const badge = btn.querySelector('.count-badge');
+        if (badge) {
+            badge.textContent = count;
+        } else if (count > 0) {
+            // Add count in parentheses if not using badges
+            const currentText = btn.textContent.split('(')[0].trim();
+            btn.textContent = `${currentText} (${count})`;
+        }
+    });
 }
 
 // Function to display assets in the table
@@ -82,13 +161,7 @@ function formatDate(dateString) {
 
 // Function to handle search
 function handleSearch() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const rows = document.querySelectorAll('#assetTableBody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(searchTerm) ? '' : 'none';
-    });
+    applyFilters();
 }
 
 // Sort table function
@@ -135,6 +208,24 @@ function sortTable(columnIndex) {
     rows.forEach(row => tbody.appendChild(row));
 }
 
+// Function to clear search and filters
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchColumn').value = 'all';
+    currentSearchColumn = 'all';
+    
+    // Reset status filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === 'all') {
+            btn.classList.add('active');
+        }
+    });
+    
+    currentFilter = 'all';
+    applyFilters();
+}
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', () => {
     // Load assets when page loads
@@ -149,5 +240,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'Enter') {
             handleSearch();
         }
+    });
+    
+    // Set up search column selection
+    const searchColumn = document.getElementById('searchColumn');
+    searchColumn.addEventListener('change', () => {
+        currentSearchColumn = searchColumn.value;
+        handleSearch();
+    });
+    
+    // Set up clear search button
+    const clearSearchButton = document.getElementById('clearSearch');
+    clearSearchButton.addEventListener('click', clearSearch);
+    
+    // Set up filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active class from all buttons
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('active');
+            });
+            
+            // Add active class to clicked button
+            btn.classList.add('active');
+            
+            // Set current filter and apply filters
+            currentFilter = btn.dataset.filter;
+            applyFilters();
+        });
     });
 });
