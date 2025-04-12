@@ -636,3 +636,56 @@ def delete_room_endpoint(room_id):
             'success': False, 
             'message': 'Failed to delete room. It may be in use by assets.'
         }), 400
+        
+@settings_views.route('/api/users', methods=['GET'])
+@jwt_required()
+def get_all_users_api():
+    """Get all users for the user management section"""
+    from App.controllers.user import get_all_users_json
+    users = get_all_users_json()
+    return jsonify(users)
+
+@settings_views.route('/api/user/create', methods=['POST'])
+@jwt_required()
+def create_user_api():
+    """Create a new user"""
+    from App.controllers.user import create_user, get_user_by_email
+    
+    data = request.json
+    
+    if not data:
+        return jsonify({'success': False, 'message': 'No data provided'}), 400
+    
+    email = data.get('email')
+    username = data.get('username')
+    password = data.get('password')
+    
+    # Basic validation
+    if not email or not username or not password:
+        return jsonify({'success': False, 'message': 'Email, username and password are required'}), 400
+    
+    # Check if user already exists
+    existing_user = get_user_by_email(email)
+    if existing_user:
+        return jsonify({'success': False, 'message': 'A user with this email already exists'}), 409
+    
+    try:
+        # Create the user
+        new_user = create_user(email, username, password)
+        
+        if new_user:
+            return jsonify({
+                'success': True, 
+                'message': 'User created successfully',
+                'user': {
+                    'id': new_user.id,
+                    'email': new_user.email,
+                    'username': new_user.username
+                }
+            })
+        else:
+            return jsonify({'success': False, 'message': 'Failed to create user'}), 500
+            
+    except Exception as e:
+        print(f"Error creating user: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error creating user: {str(e)}'}), 500

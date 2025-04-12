@@ -3,10 +3,22 @@ from App.database import db
 from werkzeug.security import generate_password_hash
 
 def create_user(email, username, password):
-    newuser = User(email=email, username=username, password=password)
-    db.session.add(newuser)
-    db.session.commit()
-    return newuser
+    # Check if email already exists
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        return None
+        
+    # Create new user
+    new_user = User(email=email, username=username, password=password)
+    
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return new_user
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating user: {e}")
+        return None
 
 def get_user_by_username(username):
     return User.query.filter_by(username=username).first()
@@ -26,8 +38,6 @@ def get_all_users_json():
         return []
     users = [user.get_json() for user in users]
     return users
-
-# Replace your update_user function in App/controllers/user.py with this fixed version
 
 def update_user(id, email, username, new_password=None):
     try:
@@ -60,12 +70,18 @@ def update_user(id, email, username, new_password=None):
     except Exception as e:
         # Rollback the session
         db.session.rollback()
+        print(f"Error updating user: {e}")
         return None
 
 def delete_user(id):
-    user = get_user(id)
-    if user:
-        db.session.delete(user)
-        db.session.commit()
-        return True
-    return False
+    try:
+        user = get_user(id)
+        if user:
+            db.session.delete(user)
+            db.session.commit()
+            return True
+        return False
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting user: {e}")
+        return False
