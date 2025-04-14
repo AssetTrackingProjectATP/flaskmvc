@@ -6,75 +6,8 @@
     <title>iGOVTT - Asset Inventory</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
-    <style>
-        .content-area {
-            padding: 2rem;
-            width: calc(100% - 250px);
-            box-sizing: border-box;
-        }
-        .search-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            width: 100%;
-        }
-        .search-bar {
-            display: flex;
-            width: 500px;
-            margin-right: auto;
-        }
-        .action-container {
-            margin-left: auto;
-        }
-        .search-bar input {
-            border-top-right-radius: 0;
-            border-bottom-right-radius: 0;
-        }
-        .search-button {
-            border-top-left-radius: 0;
-            border-bottom-left-radius: 0;
-        }
-        .add-asset-btn {
-            background-color: var(--success-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .add-asset-btn:hover {
-            background-color: #218838;
-            color: white;
-        }
-        .action-container {
-            margin-left: auto;
-            display: flex;
-            gap: 10px;
-        }
-        .add-csv-btn {
-            background-color: var(--primary-color, #0d6efd);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .add-csv-btn:hover {
-            background-color: #0a58ca;
-            color: white;
-        }
-         #addAssetModal .form-label {
-            font-weight: 500;
-        }
-    </style>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/inventory.css') }}" rel="stylesheet">
 </head>
 <body>
     <div class="sidebar">
@@ -96,6 +29,11 @@
 
     <div class="content-area">
         <h2 class="mb-4">Asset Inventory</h2>
+        
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+        
+        <!-- Search and Filters -->
         <div class="search-container">
             <div class="search-bar">
                 <input type="text" class="form-control" id="searchInput" placeholder="Search assets...">
@@ -103,12 +41,74 @@
                     <i class="bi bi-search"></i>
                 </button>
             </div>
+            
             <div class="action-container">
                 <button type="button" class="btn add-asset-btn" data-bs-toggle="modal" data-bs-target="#addAssetModal">
                     <i class="bi bi-plus-lg"></i> Add Asset
                 </button>
             </div>
+            
+            <div class="filter-section">
+                <div class="d-flex align-items-center me-3">
+                    <small class="text-muted me-2">Filter by:</small>
+                </div>
+                
+                <!-- Status Filters -->
+                <div class="filter-item status-filter" data-status="Good">
+                    <span class="status-dot status-good me-1"></span> Good
+                </div>
+                <div class="filter-item status-filter" data-status="Misplaced">
+                    <span class="status-dot status-misplaced me-1"></span> Misplaced
+                </div>
+                <div class="filter-item status-filter" data-status="Missing">
+                    <span class="status-dot status-missing me-1"></span> Missing
+                </div>
+                
+                <!-- Column Filters -->
+                <div class="ms-3 d-flex align-items-center">
+                    <small class="text-muted me-2">Column:</small>
+                </div>
+                
+                <div class="filter-dropdown dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select Field
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><div class="dropdown-item-custom column-filter" data-column="0">Description</div></li>
+                        <li><div class="dropdown-item-custom column-filter" data-column="1">Asset Tag</div></li>
+                        <li><div class="dropdown-item-custom column-filter" data-column="2">Brand/Model</div></li>
+                        <li><div class="dropdown-item-custom column-filter" data-column="3">Location</div></li>
+                        <li><div class="dropdown-item-custom column-filter" data-column="5">Assignee</div></li>
+                    </ul>
+                </div>
+                
+                <!-- Reset Filters -->
+                <div class="ms-auto filter-reset" id="resetFilters">
+                    <i class="bi bi-x-circle"></i> Clear Filters
+                </div>
+            </div>
+            
+            <!-- Active Filters Display -->
+            <div id="filtersContainer" class="d-none w-100">
+                <div class="d-flex align-items-center mt-2">
+                    <small class="text-muted me-2">Active filters:</small>
+                    <div id="activeFilters" class="active-filters"></div>
+                    <div class="ms-auto">
+                        <small id="resultsCount" class="text-muted"></small>
+                    </div>
+                </div>
+            </div>
         </div>
+        
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="text-center my-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading assets...</p>
+        </div>
+        
+        <!-- Asset Table -->
         <div class="inventory-table">
             <table class="table table-hover mb-0">
                 <thead>
@@ -126,9 +126,9 @@
                 <tbody id="assetTableBody"></tbody>
             </table>
         </div>
-        <div class="d-flex justify-content-center mt-4" id="paginationContainer"></div>
     </div>
 
+    <!-- Add Asset Modal -->
     <div class="modal fade" id="addAssetModal" tabindex="-1" aria-labelledby="addAssetModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -189,6 +189,7 @@
       </div>
     </div>
 
+    <!-- Status Modal -->
     <div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -204,7 +205,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/inventory.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/inventory.js') }}"></script>
 </body>
 </html>
