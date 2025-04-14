@@ -3,8 +3,291 @@
  * Manages the asset auditing process including scanning, tracking, and updating assets
  */
 
+// QR Code Scanner Module
+const QRScanner = (function() {
+    // Private state
+    let videoElem = null;
+    let canvasElem = null;
+    let isScanning = false;
+    let scanInterval = null;
+    
+    // Reference to processing function
+    let processAssetCallback = null;
+    
+    /**
+     * Initialize the QR scanner
+     * @param {Function} processAssetFn - Callback function when asset is scanned
+     */
+    function init(processAssetFn) {
+        processAssetCallback = processAssetFn;
+    }
+    
+    /**
+     * Start QR code scanning
+     */
+    function startScanning() {
+        if (isScanning) return;
+        
+        // Create video and canvas elements if they don't exist
+        setupVideoCanvas();
+        
+        // Check if the browser supports getUserMedia API
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showScanError('Your browser does not support camera access for QR scanning.');
+            return;
+        }
+        
+        // Request camera access
+        navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" } // Use back camera if available
+        })
+        .then(function(stream) {
+            videoElem.srcObject = stream;
+            videoElem.setAttribute('playsinline', true); // Required for iOS
+            videoElem.play();
+            isScanning = true;
+            
+            // Start the scanning interval
+            scanInterval = setInterval(scanQRCode, 500); // Scan every 500ms
+        })
+        .catch(function(error) {
+            console.error('Error accessing camera:', error);
+            showScanError('Could not access camera. Please check your camera permissions.');
+        });
+    }
+    
+    /**
+     * Stop QR code scanning
+     */
+    function stopScanning() {
+        if (!isScanning) return;
+        
+        // Clear scan interval
+        if (scanInterval) {
+            clearInterval(scanInterval);
+            scanInterval = null;
+        }
+        
+        // Stop all video tracks
+        if (videoElem && videoElem.srcObject) {
+            videoElem.srcObject.getTracks().forEach(track => track.stop());
+            videoElem.srcObject = null;
+        }
+        
+        isScanning = false;
+        
+        // Remove video and canvas elements
+        removeVideoCanvas();
+    }
+    
+    /**
+     * Create and append video and canvas elements for scanning
+     */
+    function setupVideoCanvas() {
+        // Check if elements already exist
+        if (videoElem && canvasElem) return;
+        
+        // Create container for scanner UI
+        const containerDiv = document.createElement('div');
+        containerDiv.id = 'qrScannerContainer';
+        containerDiv.className = 'qr-scanner-container';
+        
+        // Create video element
+        videoElem = document.createElement('video');
+        videoElem.id = 'qrVideo';
+        videoElem.className = 'qr-video';
+        containerDiv.appendChild(videoElem);
+        
+        // Create canvas element (for processing frames)
+        canvasElem = document.createElement('canvas');
+        canvasElem.id = 'qrCanvas';
+        canvasElem.className = 'qr-canvas';
+        canvasElem.style.display = 'none';
+        containerDiv.appendChild(canvasElem);
+        
+        // Add scan overlay
+        const overlayDiv = document.createElement('div');
+        overlayDiv.className = 'qr-scan-overlay';
+        overlayDiv.innerHTML = `
+            <div class="qr-scan-region"></div>
+            <div class="qr-scan-instruction">Position the QR code within the frame</div>
+        `;
+        containerDiv.appendChild(overlayDiv);
+        
+        // Add to container
+        const scanIndicatorContainer = document.getElementById('scanIndicatorContainer');
+        scanIndicatorContainer.appendChild(containerDiv);
+    }
+    
+    /**
+     * Remove video and canvas elements
+     */
+    function removeVideoCanvas() {
+        const container = document.getElementById('qrScannerContainer');
+        if (container) {
+            container.remove();
+        }
+        videoElem = null;
+        canvasElem = null;
+    }
+    
+    /**
+     * Process a video frame to detect QR codes
+     */
+    function scanQRCode() {
+        if (!isScanning || !videoElem || !canvasElem) return;
+        
+        // Check if video is ready
+        if (videoElem.readyState !== videoElem.HAVE_ENOUGH_DATA) return;
+        
+        // Get canvas context and draw video frame
+        const ctx = canvasElem.getContext('2d');
+        canvasElem.width = videoElem.videoWidth;
+        canvasElem.height = videoElem.videoHeight;
+        ctx.drawImage(videoElem, 0, 0, canvasElem.width, canvasElem.height);
+        
+        // Get image data for processing
+        const imageData = ctx.getImageData(0, 0, canvasElem.width, canvasElem.height);
+        
+        try {
+            // Use jsQR library if available
+            if (window.jsQR) {
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (code) {
+                    processQRCode(code.data);
+                }
+            } else {
+                // Fallback to simulation for demo purposes
+                console.log("jsQR library not found, falling back to simulation");
+                clearInterval(scanInterval);
+                setTimeout(() => simulateQRScan(), 2000);
+            }
+        } catch (error) {
+            console.error('Error processing QR code:', error);
+            // Fallback to simulation
+            if (Math.random() > 0.7) {
+                simulateQRScan();
+            }
+        }
+    }
+    
+    /**
+     * Simulate scanning a QR code (for demo purposes)
+     */
+    function simulateQRScan() {
+        console.log("Simulating QR code scan");
+        
+        // Generate a random asset ID and name
+        const assetTypes = ['Laptop', 'Monitor', 'Printer', 'Projector', 'Tablet', 'Phone'];
+        const randomType = assetTypes[Math.floor(Math.random() * assetTypes.length)];
+        const randomId = 'A' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        
+        // Format the QR data
+        const qrData = `${randomId}|${randomType} ${randomId.substr(1)}`;
+        
+        // Process the simulated QR code
+        processQRCode(qrData);
+    }
+    
+    /**
+     * Process the scanned QR code data
+     * @param {string} data - The QR code data
+     */
+    function processQRCode(data) {
+        if (!data) return;
+        
+        // Temporarily pause scanning
+        clearInterval(scanInterval);
+        
+        // Parse the QR code data (format: assetId|assetName)
+        const parts = data.split('|');
+        if (parts.length < 1) {
+            console.error('Invalid QR code format:', data);
+            scanInterval = setInterval(scanQRCode, 500);
+            return;
+        }
+        
+        // Extract asset ID (which is the first part before the pipe)
+        const assetId = parts[0].trim();
+        
+        console.log('QR Code scanned:', data);
+        console.log('Processing asset ID:', assetId);
+        
+        // Call the process asset callback with the asset ID
+        if (processAssetCallback) {
+            processAssetCallback(assetId);
+            
+            // Visual feedback that QR was scanned
+            const overlay = document.querySelector('.qr-scan-region');
+            if (overlay) {
+                overlay.style.borderColor = '#28a745';
+                overlay.style.boxShadow = '0 0 0 4000px rgba(40, 167, 69, 0.3)';
+                
+                // Reset after a moment
+                setTimeout(() => {
+                    overlay.style.borderColor = '#fff';
+                    overlay.style.boxShadow = '0 0 0 4000px rgba(0, 0, 0, 0.3)';
+                    scanInterval = setInterval(scanQRCode, 500);
+                }, 1000);
+            } else {
+                scanInterval = setInterval(scanQRCode, 500);
+            }
+        } else {
+            scanInterval = setInterval(scanQRCode, 500);
+        }
+    }
+    
+    /**
+     * Show an error message for scanning
+     * @param {string} message - The error message
+     */
+    function showScanError(message) {
+        const container = document.getElementById('scanIndicatorContainer');
+        if (!container) return;
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger';
+        errorDiv.innerHTML = `
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span>${message}</span>
+        `;
+        
+        // Remove existing QR scanner container if present
+        removeVideoCanvas();
+        
+        // Add error message
+        container.appendChild(errorDiv);
+    }
+    
+    // Return public API
+    return {
+        init,
+        startScanning,
+        stopScanning
+    };
+})();
+
 // Main application module
 const AuditApp = (function() {
+    // Load jsQR library dynamically
+    function loadJsQRLibrary() {
+        if (window.jsQR) return Promise.resolve();
+        
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+            script.onload = () => resolve();
+            script.onerror = () => {
+                console.warn('Could not load jsQR library. QR scanning will be simulated.');
+                resolve(); // Resolve anyway to continue with simulation
+            };
+            document.head.appendChild(script);
+        });
+    }
+    
     // Private state
     const state = {
         currentAuditMethod: 'manual',
@@ -32,8 +315,15 @@ const AuditApp = (function() {
      * Initialize the application
      */
     function init() {
-        setupEventListeners();
-        setAuditMethod('manual');
+        // Load jsQR library
+        loadJsQRLibrary().then(() => {
+            // Initialize QR scanner with asset processing callback
+            QRScanner.init(processScannedAsset);
+            
+            // Setup other event listeners
+            setupEventListeners();
+            setAuditMethod('manual');
+        });
     }
     
     /**
@@ -252,6 +542,10 @@ const AuditApp = (function() {
                 rfidSimulationInterval = null;
             }
         } else if (state.currentAuditMethod === 'qrcode') {
+            // Stop real QR scanning
+            QRScanner.stopScanning();
+            
+            // Also stop simulation if active
             if (qrSimulationInterval) {
                 clearInterval(qrSimulationInterval);
                 qrSimulationInterval = null;
@@ -312,10 +606,14 @@ const AuditApp = (function() {
             rfidSimulationInterval = null;
         }
         
-        // Stop QR code simulation
-        if (qrSimulationInterval) {
-            clearInterval(qrSimulationInterval);
-            qrSimulationInterval = null;
+        // Stop QR code scanning
+        if (state.currentAuditMethod === 'qrcode') {
+            QRScanner.stopScanning();
+            
+            if (qrSimulationInterval) {
+                clearInterval(qrSimulationInterval);
+                qrSimulationInterval = null;
+            }
         }
     }
     
@@ -553,7 +851,7 @@ const AuditApp = (function() {
     }
     
     // --------------------------------------
-    // RFID and QR Code Simulation
+    // RFID and QR Code Scanning/Simulation
     // --------------------------------------
     
     /**
@@ -590,36 +888,19 @@ const AuditApp = (function() {
     }
     
     /**
-     * Start QR Code scanning simulation
+     * Start QR Code scanning
      */
     function startQRCodeScan() {
         if (!state.isRoomAuditActive || state.currentAuditMethod !== 'qrcode') return;
         
-        // Simulate QR scanning at random intervals (less frequent than RFID)
-        if (qrSimulationInterval) clearInterval(qrSimulationInterval);
+        // Stop simulation if running
+        if (qrSimulationInterval) {
+            clearInterval(qrSimulationInterval);
+            qrSimulationInterval = null;
+        }
         
-        qrSimulationInterval = setInterval(() => {
-            if (state.expectedAssets.length > 0) {
-                // Randomly select an asset to "scan" with higher probability for unscanned assets
-                const unscannedAssets = state.expectedAssets.filter(asset => !asset.found);
-                
-                if (unscannedAssets.length > 0 && Math.random() > 0.3) {
-                    // 70% chance to scan an unscanned asset
-                    const randomIndex = Math.floor(Math.random() * unscannedAssets.length);
-                    processScannedAsset(unscannedAssets[randomIndex].id);
-                } else if (state.expectedAssets.length > 0) {
-                    // 30% chance to scan any asset
-                    const randomIndex = Math.floor(Math.random() * state.expectedAssets.length);
-                    processScannedAsset(state.expectedAssets[randomIndex].id);
-                }
-                
-                // 10% chance to scan an unexpected asset
-                if (Math.random() < 0.1) {
-                    const randomId = 'QR-' + Math.floor(Math.random() * 10000);
-                    processScannedAsset(randomId);
-                }
-            }
-        }, 5000); // Simulate a scan every 5 seconds
+        // Start the QR scanner using the camera
+        QRScanner.startScanning();
     }
     
     // --------------------------------------

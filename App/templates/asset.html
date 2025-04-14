@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <style>
         .detail-card {
             background-color: white;
@@ -306,6 +307,12 @@
                         </button>
                         {% endif %}
                     </div>
+
+                    <div class="action-buttons mt-2">
+                        <button class="btn btn-secondary" id="generateQRBtn" data-asset-id="{{ asset.id }}" data-asset-name="{{ asset.description }}">
+                            <i class="bi bi-qr-code"></i> Generate QR Code
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -388,7 +395,32 @@
         </div>
     </div>
 
+    <div class="modal fade" id="qrCodeModal" tabindex="-1" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="qrCodeModalLabel">Asset QR Code</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="qrCodeContainer" class="mb-3"></div>
+                    <p id="qrAssetInfo" class="fw-bold mb-3"></p>
+                    <div class="text-muted small mb-3">
+                        This QR code contains the asset ID and name for scanning during audits.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="downloadQRBtn">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script>
         // JavaScript for the Asset Report Page
         document.addEventListener('DOMContentLoaded', function() {
@@ -780,5 +812,113 @@
             }
         });
     </script>
+
+    <script>
+        // QR Code functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM loaded, setting up QR code functionality");
+            
+            // Set up QR code generation
+            const generateBtn = document.getElementById('generateQRBtn');
+            if (generateBtn) {
+                generateBtn.addEventListener('click', function() {
+                    const assetId = this.getAttribute('data-asset-id');
+                    const assetName = this.getAttribute('data-asset-name');
+                    generateQRCode(assetId, assetName);
+                });
+            }
+            
+            // Set up Download button
+            const downloadBtn = document.getElementById('downloadQRBtn');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', downloadQRCode);
+            }
+        });
+
+        function generateQRCode(assetId, assetName) {
+            console.log("Generating QR code for:", assetId, assetName);
+            
+            // Clear previous QR code
+            const container = document.getElementById('qrCodeContainer');
+            if (!container) {
+                console.error("QR code container not found");
+                return;
+            }
+            
+            // Show loading indicator
+            container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+            
+            // Show asset info
+            const infoElement = document.getElementById('qrAssetInfo');
+            if (infoElement) {
+                infoElement.textContent = `${assetName} (${assetId})`;
+            }
+            
+            // Format: assetId|assetName
+            const qrData = `${assetId}|${assetName}`;
+            
+            // Use QR code generator API (no library needed)
+            const img = new Image();
+            img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}&margin=10`;
+            img.alt = "Asset QR Code";
+            img.className = "img-fluid";
+            
+            // When image loads successfully
+            img.onload = function() {
+                container.innerHTML = '';
+                container.appendChild(img);
+                console.log("QR code generated successfully");
+            };
+            
+            // Handle image load error
+            img.onerror = function() {
+                container.innerHTML = '<div class="alert alert-danger">Failed to generate QR code. Please check your internet connection.</div>';
+                console.error("Failed to load QR code image");
+            };
+            
+            // Show the modal
+            const qrModal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
+            qrModal.show();
+        }
+
+        function downloadQRCode() {
+            const img = document.querySelector('#qrCodeContainer img');
+            if (!img) {
+                console.error("No QR code image found to download");
+                return;
+            }
+            
+            // Get asset info for filename
+            const assetInfo = document.getElementById('qrAssetInfo').textContent;
+            const safeName = assetInfo.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            
+            try {
+                // Create a canvas to draw the image
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                // Get the image data
+                const imageData = canvas.toDataURL('image/png');
+                
+                // Create a temporary link element
+                const link = document.createElement('a');
+                link.download = `asset_qr_${safeName}.png`;
+                link.href = imageData;
+                
+                // Trigger download
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                console.log("QR code download initiated");
+            } catch (err) {
+                console.error("Error downloading QR code:", err);
+                alert("There was an error downloading the QR code. The image might be from a different domain.");
+            }
+        }
+    </script>
+    
 </body>
 </html>
