@@ -196,14 +196,60 @@
 }
 
 /* Status Indicators */
-.status-indicator {
-    display: flex;
-    align-items: center;
-    font-weight: 500;
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
 }
 
-.status-indicator i {
-    margin-right: 5px;
+.status-good { background: var(--success-color); }
+.status-missing { background: var(--danger-color); }
+.status-misplaced { background: var(--warning-color); }
+.status-lost { background: #dc3545; } /* Danger red */
+.status-unassigned { background: #6c757d; } /* Grey */
+
+/* Status indicator in table - less overwhelming */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    background-color: transparent;
+    border: 1px solid transparent;
+}
+
+.status-indicator.status-good {
+    color: var(--success-color);
+    border-color: var(--success-color);
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.status-indicator.status-missing {
+    color: var(--danger-color);
+    border-color: var(--danger-color);
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.status-indicator.status-misplaced {
+    color: #e67e22; /* Darker orange */
+    border-color: var(--warning-color);
+    background-color: rgba(241, 196, 15, 0.1);
+}
+
+.status-indicator.status-lost {
+    color: #dc3545; /* Danger red */
+    border-color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.status-indicator.status-unassigned {
+    color: #495057; /* Darker grey */
+    border-color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.1);
 }
 
 /* Modals */

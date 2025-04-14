@@ -48,44 +48,51 @@
                 </button>
             </div>
             
+            <!-- Status Filters -->
             <div class="filter-section">
                 <div class="d-flex align-items-center me-3">
                     <small class="text-muted me-2">Filter by:</small>
                 </div>
-                
+
                 <!-- Status Filters -->
-                <div class="filter-item status-filter" data-status="Good">
+                <div class="filter-item status-filter" data-status="good">
                     <span class="status-dot status-good me-1"></span> Good
                 </div>
-                <div class="filter-item status-filter" data-status="Misplaced">
+                <div class="filter-item status-filter" data-status="misplaced">
                     <span class="status-dot status-misplaced me-1"></span> Misplaced
                 </div>
-                <div class="filter-item status-filter" data-status="Missing">
+                <div class="filter-item status-filter" data-status="missing">
                     <span class="status-dot status-missing me-1"></span> Missing
                 </div>
-                
-                <!-- Column Filters -->
-                <div class="ms-3 d-flex align-items-center">
-                    <small class="text-muted me-2">Column:</small>
+                <div class="filter-item status-filter" data-status="lost">
+                    <span class="status-dot status-lost me-1"></span> Lost
                 </div>
-                
-                <div class="filter-dropdown dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Select Field
-                    </button>
-                    <ul class="dropdown-menu">
-                        <li><div class="dropdown-item-custom column-filter" data-column="0">Description</div></li>
-                        <li><div class="dropdown-item-custom column-filter" data-column="1">Asset Tag</div></li>
-                        <li><div class="dropdown-item-custom column-filter" data-column="2">Brand/Model</div></li>
-                        <li><div class="dropdown-item-custom column-filter" data-column="3">Location</div></li>
-                        <li><div class="dropdown-item-custom column-filter" data-column="5">Assignee</div></li>
-                    </ul>
-                </div>
-                
-                <!-- Reset Filters -->
-                <div class="ms-auto filter-reset" id="resetFilters">
-                    <i class="bi bi-x-circle"></i> Clear Filters
-                </div>
+                <div class="filter-item status-filter" data-status="unassigned">
+                    <span class="status-dot status-unassigned me-1"></span> Unassigned
+            </div>
+
+            <!-- Column Filters -->
+            <div class="ms-3 d-flex align-items-center">
+                <small class="text-muted me-2">Column:</small>
+            </div>
+
+            <div class="filter-dropdown dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Select Field
+                </button>
+                <ul class="dropdown-menu">
+                    <li><div class="dropdown-item-custom column-filter" data-column="0">Description</div></li>
+                    <li><div class="dropdown-item-custom column-filter" data-column="1">Asset Tag</div></li>
+                    <li><div class="dropdown-item-custom column-filter" data-column="2">Brand/Model</div></li>
+                    <li><div class="dropdown-item-custom column-filter" data-column="3">Location</div></li>
+                    <li><div class="dropdown-item-custom column-filter" data-column="5">Assignee</div></li>
+                </ul>
+            </div>
+
+            <!-- Reset Filters -->
+            <div class="ms-auto filter-reset" id="resetFilters">
+                <i class="bi bi-x-circle"></i> Clear Filters
+            </div>
             </div>
             
             <!-- Active Filters Display -->
