@@ -134,6 +134,7 @@
     gap: 15px;
     margin-bottom: 25px;
     flex-wrap: wrap;
+    justify-content: flex-start; /* Align badges to the left */
 }
 
 .filter-badge {
@@ -166,6 +167,36 @@
     padding: 2px 8px;
     border-radius: 10px;
     font-size: 0.8rem;
+}
+
+#downloadReportBtn {
+    margin-left: auto; /* Push to the right side */
+    white-space: nowrap;
+    background-color: white;
+    transition: all 0.2s ease;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+}
+
+#downloadReportBtn:hover {
+    background-color: var(--primary-blue);
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* Ensure filter-section stays responsive */
+@media (max-width: 768px) {
+    .filter-section {
+        justify-content: space-between;
+    }
+    
+    #downloadReportBtn {
+        margin-left: 0;
+        margin-top: 10px;
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 /* Bulk Actions Toolbar */

@@ -215,6 +215,28 @@ const API = {
             console.error("Failed to parse server response as JSON:", e);
             return null;
         }
+    },
+
+    /**
+     * Download current discrepancies as CSV
+     * @param {string} filter - Optional filter ('all', 'missing', or 'misplaced')
+     * @returns {Promise<void>} Promise that resolves when download starts
+     */
+    async downloadDiscrepancies(filter = 'all') {
+        try {
+            // Create the download URL with the current filter
+            const downloadUrl = `/api/discrepancies/download?filter=${filter}`;
+            
+            // Create a timestamp for the filename
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            
+            // Redirect to the download endpoint
+            window.location.href = downloadUrl;
+        } catch (error) {
+            console.error('Error initiating download:', error);
+            UI.showErrorMessage('Failed to download report. Please try again later.');
+            throw error;
+        }
     }
 };
 
@@ -431,6 +453,19 @@ const UI = {
         
         // Individual asset action buttons (delegated)
         document.addEventListener('click', this.handleAssetActions.bind(this));
+
+        // Download report button
+        document.getElementById('downloadReportBtn').addEventListener('click', this.handleDownloadReport.bind(this));
+    },
+
+    /**
+     * Handle download report button click
+     * @param {Event} e - The click event
+     */
+    handleDownloadReport(e) {
+        e.preventDefault();
+        // Use the current filter when downloading
+        API.downloadDiscrepancies(DiscrepancyState.currentFilter);
     },
     
     /**
