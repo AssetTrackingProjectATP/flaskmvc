@@ -56,27 +56,36 @@ def asset_report(asset_id):
         try:
             event_dict = {}
             if hasattr(event, 'get_json') and callable(event.get_json):
-                 event_dict = event.get_json()
+                # Get the JSON representation and clean up the keys
+                raw_dict = event.get_json()
+                # Remove colons and spaces from keys
+                event_dict = {key.rstrip(': '): value for key, value in raw_dict.items()}
             else:
                 event_dict_raw = event.__dict__.copy()
                 event_dict_raw.pop('_sa_instance_state', None)
                 for key, value in event_dict_raw.items():
+                    # Fix key names - remove trailing colons and spaces
+                    clean_key = key.rstrip(': ') if isinstance(key, str) else key
                     if isinstance(value, datetime):
-                        event_dict[f"{key}: "] = value.strftime('%Y-%m-%d %H:%M:%S')
+                        # Store datetime objects directly instead of strings
+                        event_dict[clean_key] = value
                     else:
-                        event_dict[f"{key}: "] = value
+                        event_dict[clean_key] = value
+            
+            # Add room name
             scan_room = get_room(event.room_id)
             event_dict['room_name'] = scan_room.room_name if scan_room else f"Room {event.room_id}"
             enriched_scan_events.append(event_dict)
         except Exception as e:
             print(f"Error processing scan event {getattr(event, 'scan_id', 'N/A')}: {e}")
             enriched_scan_events.append({
-                'scan_id: ': getattr(event, 'scan_id', 'N/A'),
+                'scan_id': getattr(event, 'scan_id', 'N/A'),  # Remove colon
                 'error': 'Could not process event data',
-                'scan_time: ': getattr(event, 'scan_time', datetime.now()).strftime('%Y-%m-%d %H:%M:%S')
+                'scan_time': getattr(event, 'scan_time', datetime.now())  # Store as datetime object
             })
+
     def get_scan_time(event_dict):
-        time_val = event_dict.get('scan_time: ') or event_dict.get('scan_time')
+        time_val = event_dict.get('scan_time')  # Use clean key
         if isinstance(time_val, str):
             try:
                 return datetime.strptime(time_val, '%Y-%m-%d %H:%M:%S')
@@ -86,6 +95,7 @@ def asset_report(asset_id):
             return time_val
         else:
             return datetime.min
+    
     enriched_scan_events.sort(key=get_scan_time, reverse=True)
     return render_template('asset.html',
                           asset=asset,
