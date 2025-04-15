@@ -6,6 +6,7 @@ from App.controllers import (
     create_building, get_building, 
     create_floor, get_floor,
     create_room, get_room, 
+    get_assignee_name_by_id
 )
 from App.controllers.asset import(
     get_asset, get_all_assets,
@@ -308,6 +309,25 @@ class AssigneeIntegrationTests(unittest.TestCase):
         updated = update_assignee(assignee.id, "Robert", "Jones", "bob@example.com", "R3")
         self.assertEqual(updated.fname, "Robert")
         self.assertEqual(updated.room_id, "R3")
+        
+    def test_get_assignee_name_by_id_found(self):
+        """
+        Test when the assignee is found in the database.
+        """
+        # Create a mock Assignee object.  A mock object simulates the behavior
+        # of a real object, but without actually involving the database.
+        mock_assignee = create_assignee("John", "Doe", "john@example.com", "R1")
+       
+        id = mock_assignee.id
+
+      
+        # Call the function with an ID that should "find" the mock assignee.
+        result = get_assignee_name_by_id(id)  #  Use 1, or any ID.
+
+        # Assert that the function returns the correct name.
+        self.assertEqual(result, "John Doe")
+        
+    #
 
 class AssetAssignmentIntegrationTests(unittest.TestCase):
     def test_create_asset_assignment(self):

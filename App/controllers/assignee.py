@@ -10,6 +10,20 @@ def create_assignee(fname, lname, email, room_id):
 def get_assignee_by_id(assignee_id):
     return Assignee.query.get(assignee_id)
 
+# def get_assignee_name_by_id(id):
+#     new_assignee = Assignee.query.filter_by(id=id).first()
+#     assignee_name = new_assignee.fname + " " + new_assignee.lname
+#     return assignee_name
+
+def get_assignee_name_by_id(id):
+    new_assignee = Assignee.query.filter_by(id=id).first()
+    if new_assignee:
+        assignee_name = f"{new_assignee.fname} {new_assignee.lname}"
+        return assignee_name
+    else:
+        return None
+    
+
 def get_assignee_by_fname(fname):
     return Assignee.query.filter_by(fname=fname).all()
 
