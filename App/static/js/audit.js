@@ -4,15 +4,31 @@
  */
 
 // QR Code Scanner Module
+/**
+ * QR Code Scanner Module
+ * Supports both mobile camera scanning and desktop external QR scanners
+ */
 const QRScanner = (function() {
     // Private state
     let videoElem = null;
     let canvasElem = null;
     let isScanning = false;
     let scanInterval = null;
+    let isMobileDevice = false;
+    let scanBuffer = '';
+    let scanTimeout = null;
     
     // Reference to processing function
     let processAssetCallback = null;
+    
+    /**
+     * Check if the device is a mobile device
+     * @returns {boolean} True if the device is mobile
+     */
+    function checkIfMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+               (window.innerWidth <= 800 && window.innerHeight <= 800);
+    }
     
     /**
      * Initialize the QR scanner
@@ -20,6 +36,8 @@ const QRScanner = (function() {
      */
     function init(processAssetFn) {
         processAssetCallback = processAssetFn;
+        isMobileDevice = checkIfMobile();
+        console.log(`Device detected as ${isMobileDevice ? 'mobile' : 'desktop'}`);
     }
     
     /**
@@ -28,6 +46,19 @@ const QRScanner = (function() {
     function startScanning() {
         if (isScanning) return;
         
+        if (isMobileDevice) {
+            // Mobile device: Use camera scanning
+            startCameraScanning();
+        } else {
+            // Desktop: Use keyboard input mode for external scanners
+            startExternalScannerMode();
+        }
+    }
+    
+    /**
+     * Start camera-based QR scanning (for mobile devices)
+     */
+    function startCameraScanning() {
         // Create video and canvas elements if they don't exist
         setupVideoCanvas();
         
@@ -57,11 +88,44 @@ const QRScanner = (function() {
     }
     
     /**
+     * Start external scanner mode (for desktop devices)
+     * This mode listens for keyboard input from external QR scanners
+     */
+    function startExternalScannerMode() {
+        // Create a container with instructions for desktop users
+        setupDesktopScannerUI();
+        
+        // Reset scan buffer
+        scanBuffer = '';
+        isScanning = true;
+        
+        // Add event listener for keypress events from external scanner
+        document.addEventListener('keypress', handleExternalScannerInput);
+        
+        console.log('External QR scanner mode activated. Ready to receive input.');
+    }
+    
+    /**
      * Stop QR code scanning
      */
     function stopScanning() {
         if (!isScanning) return;
         
+        if (isMobileDevice) {
+            // Stop camera scanning
+            stopCameraScanning();
+        } else {
+            // Stop external scanner mode
+            stopExternalScannerMode();
+        }
+        
+        isScanning = false;
+    }
+    
+    /**
+     * Stop camera scanning
+     */
+    function stopCameraScanning() {
         // Clear scan interval
         if (scanInterval) {
             clearInterval(scanInterval);
@@ -74,10 +138,81 @@ const QRScanner = (function() {
             videoElem.srcObject = null;
         }
         
-        isScanning = false;
-        
         // Remove video and canvas elements
         removeVideoCanvas();
+    }
+    
+    /**
+     * Stop external scanner mode
+     */
+    function stopExternalScannerMode() {
+        // Remove event listener for external scanner
+        document.removeEventListener('keypress', handleExternalScannerInput);
+        
+        // Clear scan buffer and timeout
+        scanBuffer = '';
+        if (scanTimeout) {
+            clearTimeout(scanTimeout);
+            scanTimeout = null;
+        }
+        
+        // Remove desktop scanner UI
+        removeDesktopScannerUI();
+    }
+    
+    /**
+     * Handle input from external QR scanner (keypress events)
+     * @param {Event} e - The keypress event
+     */
+    function handleExternalScannerInput(e) {
+        // Make sure scanning is still active
+        if (!isScanning) {
+            return;
+        }
+        
+        // Allow Enter key to work normally in search input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // Reset timeout if already waiting
+        if (scanTimeout) {
+            clearTimeout(scanTimeout);
+        }
+        
+        // Process on Enter key
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Prevent form submission
+            processExternalScanBuffer();
+            return;
+        }
+        
+        // Add character to buffer
+        scanBuffer += e.key;
+        
+        // Set timeout to process buffer after delay (for QR scanners that don't send Enter)
+        scanTimeout = setTimeout(() => {
+            if (scanBuffer.length > 0) {
+                processExternalScanBuffer();
+            }
+        }, 100); // Short timeout for QR scanners, which typically send data quickly
+        
+        e.preventDefault();
+    }
+    
+    /**
+     * Process the external scan buffer
+     */
+    function processExternalScanBuffer() {
+        if (scanBuffer.length === 0) return;
+        
+        console.log('External scanner input received:', scanBuffer);
+        
+        // Process the scanned QR code
+        processQRCode(scanBuffer);
+        
+        // Clear the buffer
+        scanBuffer = '';
     }
     
     /**
@@ -117,6 +252,42 @@ const QRScanner = (function() {
         // Add to container
         const scanIndicatorContainer = document.getElementById('scanIndicatorContainer');
         scanIndicatorContainer.appendChild(containerDiv);
+    }
+    
+    /**
+     * Create UI for desktop external scanner mode
+     */
+    function setupDesktopScannerUI() {
+        // Create container for desktop scanner UI
+        const containerDiv = document.createElement('div');
+        containerDiv.id = 'desktopScannerContainer';
+        containerDiv.className = 'desktop-scanner-container alert alert-info';
+        
+        // Add instruction content
+        containerDiv.innerHTML = `
+            <div class="desktop-scanner-content">
+                <i class="bi bi-upc-scan me-3" style="font-size: 1.5rem;"></i>
+                <div>
+                    <h5 class="mb-2">QR Scanner Mode Active</h5>
+                    <p class="mb-0">Connect your QR scanner device and scan an asset tag.<br>
+                    The scanner should work automatically like a keyboard input.</p>
+                </div>
+            </div>
+        `;
+        
+        // Add to container
+        const scanIndicatorContainer = document.getElementById('scanIndicatorContainer');
+        scanIndicatorContainer.appendChild(containerDiv);
+    }
+    
+    /**
+     * Remove desktop scanner UI
+     */
+    function removeDesktopScannerUI() {
+        const container = document.getElementById('desktopScannerContainer');
+        if (container) {
+            container.remove();
+        }
     }
     
     /**
@@ -161,35 +332,12 @@ const QRScanner = (function() {
                 }
             } else {
                 // Fallback to simulation for demo purposes
-                console.log("jsQR library not found, falling back to simulation");
+                console.log("jsQR library not found");
                 clearInterval(scanInterval);
-                setTimeout(() => simulateQRScan(), 2000);
             }
         } catch (error) {
             console.error('Error processing QR code:', error);
-            // Fallback to simulation
-            if (Math.random() > 0.7) {
-                simulateQRScan();
-            }
         }
-    }
-    
-    /**
-     * Simulate scanning a QR code (for demo purposes)
-     */
-    function simulateQRScan() {
-        console.log("Simulating QR code scan");
-        
-        // Generate a random asset ID and name
-        const assetTypes = ['Laptop', 'Monitor', 'Printer', 'Projector', 'Tablet', 'Phone'];
-        const randomType = assetTypes[Math.floor(Math.random() * assetTypes.length)];
-        const randomId = 'A' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        
-        // Format the QR data
-        const qrData = `${randomId}|${randomType} ${randomId.substr(1)}`;
-        
-        // Process the simulated QR code
-        processQRCode(qrData);
     }
     
     /**
@@ -200,13 +348,17 @@ const QRScanner = (function() {
         if (!data) return;
         
         // Temporarily pause scanning
-        clearInterval(scanInterval);
+        if (isMobileDevice && scanInterval) {
+            clearInterval(scanInterval);
+        }
         
         // Parse the QR code data (format: assetId|assetName)
         const parts = data.split('|');
         if (parts.length < 1) {
             console.error('Invalid QR code format:', data);
-            scanInterval = setInterval(scanQRCode, 500);
+            if (isMobileDevice) {
+                scanInterval = setInterval(scanQRCode, 500);
+            }
             return;
         }
         
@@ -221,22 +373,36 @@ const QRScanner = (function() {
             processAssetCallback(assetId);
             
             // Visual feedback that QR was scanned
-            const overlay = document.querySelector('.qr-scan-region');
-            if (overlay) {
-                overlay.style.borderColor = '#28a745';
-                overlay.style.boxShadow = '0 0 0 4000px rgba(40, 167, 69, 0.3)';
-                
-                // Reset after a moment
-                setTimeout(() => {
-                    overlay.style.borderColor = '#fff';
-                    overlay.style.boxShadow = '0 0 0 4000px rgba(0, 0, 0, 0.3)';
+            if (isMobileDevice) {
+                const overlay = document.querySelector('.qr-scan-region');
+                if (overlay) {
+                    overlay.style.borderColor = '#28a745';
+                    overlay.style.boxShadow = '0 0 0 4000px rgba(40, 167, 69, 0.3)';
+                    
+                    // Reset after a moment
+                    setTimeout(() => {
+                        overlay.style.borderColor = '#fff';
+                        overlay.style.boxShadow = '0 0 0 4000px rgba(0, 0, 0, 0.3)';
+                        scanInterval = setInterval(scanQRCode, 500);
+                    }, 1000);
+                } else {
                     scanInterval = setInterval(scanQRCode, 500);
-                }, 1000);
+                }
             } else {
-                scanInterval = setInterval(scanQRCode, 500);
+                // Visual feedback for desktop scanner
+                const container = document.getElementById('desktopScannerContainer');
+                if (container) {
+                    // Flash green background to indicate successful scan
+                    container.style.backgroundColor = 'rgba(40, 167, 69, 0.2)';
+                    setTimeout(() => {
+                        container.style.backgroundColor = '';
+                    }, 500);
+                }
             }
         } else {
-            scanInterval = setInterval(scanQRCode, 500);
+            if (isMobileDevice) {
+                scanInterval = setInterval(scanQRCode, 500);
+            }
         }
     }
     
@@ -257,6 +423,7 @@ const QRScanner = (function() {
         
         // Remove existing QR scanner container if present
         removeVideoCanvas();
+        removeDesktopScannerUI();
         
         // Add error message
         container.appendChild(errorDiv);
@@ -266,7 +433,8 @@ const QRScanner = (function() {
     return {
         init,
         startScanning,
-        stopScanning
+        stopScanning,
+        isMobile: () => isMobileDevice
     };
 })();
 
