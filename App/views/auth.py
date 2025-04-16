@@ -55,8 +55,9 @@ def login_page():
     return render_template('login.html')
 
 @auth_views.route('/logout', methods=['GET'])
+@jwt_required()
 def logout_action():
-    response = redirect(request.referrer) 
+    response = redirect(url_for("auth_views.login_page")) 
     flash("Logged Out!")
     unset_jwt_cookies(response)
     return response
@@ -80,11 +81,12 @@ def user_login_api():
 def identify_user():
     return jsonify({'message': f"email: {current_user.username}, id : {current_user.id}"})
 
-@auth_views.route('/api/logout', methods=['GET'])
-def logout_api():
-    response = jsonify(message="Logged Out!")
-    unset_jwt_cookies(response)
-    return response
+# @auth_views.route('/api/logout', methods=['GET'])
+# @jwt_required()
+# def logout_api():
+#     response = jsonify(message="Logged Out!")
+#     unset_jwt_cookies(response)
+#     return response
 
 @auth_views.route('/forgot-password', methods=['GET'])
 def forgot_password_page():
