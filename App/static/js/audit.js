@@ -679,7 +679,11 @@ const AuditApp = (function() {
                                 serial_number: asset.serial_number || '',
                                 room_id: asset.room_id || state.currentRoom,
                                 last_located: asset.last_located || state.currentRoom,
+                                
+                                // Make sure we preserve the assignee_name from the API
                                 assignee_id: asset.assignee_id || 'Unassigned',
+                                assignee_name: asset.assignee_name || (asset.assignee_id ? `Assignee ID: ${asset.assignee_id}` : 'Unassigned'),
+                                
                                 last_update: asset.last_update || new Date().toISOString(),
                                 notes: asset.notes || '',
                                 status: asset.status || 'Active',
@@ -1156,6 +1160,12 @@ const AuditApp = (function() {
                     
                     // Update asset location to current room and mark as misplaced
                     await updateAssetLocation(assetId, state.currentRoom);
+                    
+                    // Make sure we preserve the assignee_name from the API
+                    if (!asset.assignee_name && asset.assignee_id) {
+                        asset.assignee_name = `Assignee ID: ${asset.assignee_id}`;
+                    }
+                    
                     addMisplacedAsset(asset, scanMethod); // Pass scan method
                 } else {
                     // Asset not found in database - automatically add as unexpected
@@ -1207,12 +1217,26 @@ const AuditApp = (function() {
         asset.scanTime = new Date().toISOString();
         asset.scanMethod = scanMethod; // Store the scan method
         
+        // Ensure assignee_name is preserved
+        if (!asset.assignee_name && asset.assignee_id) {
+            if (typeof asset.assignee_id === 'number' || 
+                (typeof asset.assignee_id === 'string' && !isNaN(parseInt(asset.assignee_id)))) {
+                // If it looks like a numeric ID, format it differently
+                asset.assignee_name = `Assignee ${asset.assignee_id}`;
+            } else {
+                // It's probably already a name or text identifier
+                asset.assignee_name = asset.assignee_id;
+            }
+        }
+        
         // Update UI
         UI.updateAssetFoundStatus(asset, true);
         
         // Add to scanned assets list if not already there
         if (!state.scannedAssets.find(a => a.id === asset.id)) {
-            state.scannedAssets.push({...asset});
+            // Create a copy to prevent reference issues
+            const assetCopy = {...asset};
+            state.scannedAssets.push(assetCopy);
             UI.updateScannedAssetsTable(state.scannedAssets, state.currentRoom);
         }
         
@@ -1243,6 +1267,11 @@ const AuditApp = (function() {
             found: true
         };
         
+        // Copy assignee_name if available
+        if (asset.assignee_name) {
+            formattedAsset.assignee_name = asset.assignee_name;
+        }
+        
         // Add to scanned assets list if not already there
         if (!state.scannedAssets.find(a => a.id === assetId)) {
             state.scannedAssets.push(formattedAsset);
@@ -1254,6 +1283,7 @@ const AuditApp = (function() {
             'warning'
         );
     }
+    
     
     /**
      * Add an unexpected asset to scanned assets
@@ -1269,6 +1299,7 @@ const AuditApp = (function() {
             room_id: 'Unknown',
             last_located: state.currentRoom,
             assignee_id: 'Unassigned',
+            assignee_name: 'Unassigned', // Add assignee_name explicitly
             last_update: new Date().toISOString(),
             scanTime: new Date().toISOString(),
             scanMethod: scanMethod, // Store the scan method

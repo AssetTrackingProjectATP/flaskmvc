@@ -10,6 +10,7 @@ from App.controllers.asset import (
     update_asset_location,
     mark_assets_missing
 )
+from App.controllers.assignee import get_assignee_by_id
 
 audit_views = Blueprint('audit_views', __name__, template_folder='../templates')
 
@@ -54,7 +55,7 @@ def get_room_assets(room_id):
         # Get assets for the room
         room_assets = get_all_assets_by_room_json(room_id)
         
-        # Enhance the assets with room name information
+        # Enhance the assets with room name and assignee information
         for asset in room_assets:
             # Add room names where possible
             if 'room_id' in asset:
@@ -66,6 +67,16 @@ def get_room_assets(room_id):
                 last_room = get_room(asset['last_located'])
                 if last_room:
                     asset['last_located_name'] = last_room.room_name
+            
+            # Add assignee name information - THIS IS THE FIX
+            if asset.get('assignee_id'):
+                assignee = get_assignee_by_id(asset['assignee_id'])
+                if assignee:
+                    asset['assignee_name'] = str(assignee)  # Use __str__
+                else:
+                    asset['assignee_name'] = f"Assignee ID: {asset['assignee_id']}"
+            else:
+                asset['assignee_name'] = "Unassigned"
         
         return jsonify(room_assets)
     except Exception as e:
@@ -93,6 +104,16 @@ def get_asset_by_id(asset_id):
         last_room = get_room(asset.last_located)
         if last_room:
             asset_json['last_located_name'] = last_room.room_name
+    
+    # Add assignee name - THIS IS THE FIX
+    if asset.assignee_id:
+        assignee = get_assignee_by_id(asset.assignee_id)
+        if assignee:
+            asset_json['assignee_name'] = str(assignee)  # Use __str__
+        else:
+            asset_json['assignee_name'] = f"Assignee ID: {asset.assignee_id}"
+    else:
+        asset_json['assignee_name'] = "Unassigned"
     
     return jsonify(asset_json)
 
@@ -167,6 +188,16 @@ def update_location():
         last_room = get_room(updated_asset.last_located)
         if last_room:
             asset_json['last_located_name'] = last_room.room_name
+    
+    # Add assignee name - THIS IS THE FIX
+    if updated_asset.assignee_id:
+        assignee = get_assignee_by_id(updated_asset.assignee_id)
+        if assignee:
+            asset_json['assignee_name'] = str(assignee)  # Use __str__
+        else:
+            asset_json['assignee_name'] = f"Assignee ID: {updated_asset.assignee_id}"
+    else:
+        asset_json['assignee_name'] = "Unassigned"
     
     return jsonify({
         'success': True,
