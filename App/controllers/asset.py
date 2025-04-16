@@ -1,5 +1,5 @@
 # ... (existing imports) ...
-from datetime import datetime
+from datetime import datetime, timedelta
 from App.controllers.room import get_room
 from App.models import Asset, Room
 import os, csv
@@ -75,7 +75,7 @@ def set_last_located(id,last_located):
 def set_status(id):
     new_asset= Asset.query.filter_by(id = id).first()
     if new_asset.room_id == new_asset.last_located :
-        new_asset.status = "Found"
+        new_asset.status = "Good"
     else:
         new_asset.status = "Misplaced"
 
@@ -276,10 +276,17 @@ def update_asset_location(asset_id, new_location, user_id=None):
 
 
 # Function to mark assets as missing (from audit)
-def mark_assets_missing(asset_ids, user_id=None):
+
+def mark_assets_missing(asset_ids, user_id=None, misplaced_threshold_days=30):
     processed_count = 0
     error_count = 0
     errors = []
+    
+    # Get current time for comparison
+    current_time = datetime.now()
+    # Calculate the threshold date
+    threshold_date = current_time - timedelta(days=misplaced_threshold_days)
+    
     if not user_id:
         if current_user:
             user_id = current_user.id
@@ -293,31 +300,61 @@ def mark_assets_missing(asset_ids, user_id=None):
     for asset_id in asset_ids:
         asset = get_asset(asset_id)
         if asset:
-            if asset.status not in ["Lost"]: # Don't overwrite "Lost" status
+            if asset.status == "Lost":
+                # Don't override "Lost" status
+                print(f"Info: Asset {asset_id} already marked as Lost, skipping.")
+                error_count += 1
+                errors.append(f"Asset {asset_id} already Lost.")
+            elif asset.status == "Misplaced":
+                # Check if the asset has been misplaced for longer than the threshold
+                last_update_time = asset.last_update
+                
+                if last_update_time < threshold_date:
+                    # Asset has been misplaced for too long, mark as missing
+                    old_status = asset.status
+                    asset.status = "Missing"
+                    asset.last_update = current_time
+                    
+                    notes = f"Asset marked as Missing during audit. Previously misplaced for over {misplaced_threshold_days} days. Previous status: {old_status}."
+                    scan_event_data = {
+                        'asset_id': asset_id,
+                        'user_id': user_id,
+                        'room_id': asset.room_id,
+                        'status': "Missing",
+                        'notes': notes
+                    }
+                    
+                    assets_to_update.append(asset)
+                    scan_events_to_add.append(scan_event_data)
+                    processed_count += 1
+                else:
+                    # Asset was recently misplaced, keep as misplaced
+                    print(f"Info: Asset {asset_id} was recently misplaced (less than {misplaced_threshold_days} days ago), keeping status.")
+                    error_count += 1
+                    errors.append(f"Asset {asset_id} recently misplaced.")
+            elif asset.status in ["Good", "Found"]:
+                # Asset is already found somewhere, don't mark as missing
+                print(f"Info: Asset {asset_id} already found, skipping.")
+                error_count += 1
+                errors.append(f"Asset {asset_id} already found.")
+            else:
+                # For any other status, mark as missing
                 old_status = asset.status
                 asset.status = "Missing"
-                asset.last_update = datetime.now()
-                # Don't change last_located for Missing assets
-
-                # Create scan event data
+                asset.last_update = current_time
+                
                 notes = f"Asset marked as Missing during audit. Previous status: {old_status}."
                 scan_event_data = {
                     'asset_id': asset_id,
                     'user_id': user_id,
-                    'room_id': asset.room_id, # Log against the assigned room
+                    'room_id': asset.room_id,
                     'status': "Missing",
                     'notes': notes
                 }
                 
-                # Add to collections for batch processing
                 assets_to_update.append(asset)
                 scan_events_to_add.append(scan_event_data)
                 processed_count += 1
-            else:
-                # Optionally log that "Lost" asset was skipped
-                print(f"Info: Asset {asset_id} already marked as Lost, skipping.")
-                error_count += 1
-                errors.append(f"Asset {asset_id} already Lost.")
         else:
             errors.append(f"Asset {asset_id} not found.")
             error_count += 1
@@ -342,6 +379,7 @@ def mark_assets_missing(asset_ids, user_id=None):
         # Add a general error if commit fails
         errors.append(f"Database commit error: {e}")
         return 0, len(asset_ids), errors # Assume all failed if commit fails
+    
 # --- (get_assets_by_status, get_discrepant_assets remain the same) ---
 def get_assets_by_status(status):
     assets = Asset.query.filter_by(status=status).all()

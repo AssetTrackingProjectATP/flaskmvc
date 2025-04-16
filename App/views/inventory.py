@@ -201,5 +201,4 @@ def add_asset_api():
                  return jsonify({'success': False, 'message': 'Failed to add asset. Check if Room ID is valid.'}), 400
     except Exception as e:
         print(f"Error adding asset via API: {e}")
-        db.session.rollback()
         return jsonify({'success': False, 'message': 'An internal server error occurred.'}), 500
