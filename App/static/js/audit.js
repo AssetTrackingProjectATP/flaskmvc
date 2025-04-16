@@ -370,7 +370,7 @@ const QRScanner = (function() {
         
         // Call the process asset callback with the asset ID
         if (processAssetCallback) {
-            processAssetCallback(assetId);
+            processAssetCallback(assetId, 'qrcode'); // Specify QR code method
             
             // Visual feedback that QR was scanned
             if (isMobileDevice) {
@@ -492,6 +492,8 @@ const AuditApp = (function() {
             setupEventListeners();
             setAuditMethod('manual');
         });
+
+        
     }
     
     /**
@@ -544,6 +546,18 @@ const AuditApp = (function() {
                 }
             }
         }, true);
+
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.undo-scan-btn')) {
+                const button = e.target.closest('.undo-scan-btn');
+                const row = button.closest('tr');
+                const assetId = row.querySelector('.asset-id').textContent;
+                
+                if (confirm(`Are you sure you want to undo the scan for asset ${assetId}?`)) {
+                    AuditApp.undoScan(assetId);
+                }
+            }
+        });
     }
     
     // --------------------------------------
@@ -700,6 +714,8 @@ const AuditApp = (function() {
     function setAuditMethod(method) {
         // Don't reset scanning if we're just changing methods
         if (method === state.currentAuditMethod) return;
+
+        stopAllScanningMethods()
         
         // Stop the current scanning method
         if (state.currentAuditMethod === 'barcode') {
@@ -725,6 +741,7 @@ const AuditApp = (function() {
         // Update UI to show active method
         document.querySelectorAll('.audit-method-btn').forEach(btn => {
             btn.classList.remove('btn-primary');
+            btn.classList.remove('active');
             btn.classList.add('btn-light');
         });
 
@@ -732,6 +749,7 @@ const AuditApp = (function() {
         if (activeBtn) {
             activeBtn.classList.remove('btn-light');
             activeBtn.classList.add('btn-primary');
+            activeBtn.classList.add('active');
         }
 
         // Update scanning interface for the new method
@@ -1006,7 +1024,7 @@ const AuditApp = (function() {
         if (scannerState.scanBuffer.length === 0) return;
         
         // Process the scanned barcode/ID
-        processScannedAsset(scannerState.scanBuffer);
+        processScannedAsset(scannerState.scanBuffer, 'barcode'); // Specify barcode method
         
         // Clear the buffer
         scannerState.scanBuffer = '';
@@ -1039,17 +1057,17 @@ const AuditApp = (function() {
                 if (unscannedAssets.length > 0 && Math.random() > 0.2) {
                     // 80% chance to scan an unscanned asset
                     const randomIndex = Math.floor(Math.random() * unscannedAssets.length);
-                    processScannedAsset(unscannedAssets[randomIndex].id);
+                    processScannedAsset(unscannedAssets[randomIndex].id, 'rfid'); // Specify RFID method
                 } else if (state.expectedAssets.length > 0) {
                     // 20% chance to scan any asset
                     const randomIndex = Math.floor(Math.random() * state.expectedAssets.length);
-                    processScannedAsset(state.expectedAssets[randomIndex].id);
+                    processScannedAsset(state.expectedAssets[randomIndex].id, 'rfid'); // Specify RFID method
                 }
                 
                 // 5% chance to scan an unexpected asset
                 if (Math.random() < 0.05) {
                     const randomId = 'RFID-' + Math.floor(Math.random() * 10000);
-                    processScannedAsset(randomId);
+                    processScannedAsset(randomId, 'rfid'); // Specify RFID method
                 }
             }
         }, 3000); // Simulate a scan every 3 seconds
@@ -1091,9 +1109,9 @@ const AuditApp = (function() {
             UI.showMessage('Please enter an asset ID', 'warning');
             return;
         }
-
+    
         try {
-            await processScannedAsset(assetId);
+            await processScannedAsset(assetId, 'manual'); // Specify manual method
             // Clear the input after successful processing
             searchInput.value = '';
             // Focus back on the input for the next scan
@@ -1108,7 +1126,10 @@ const AuditApp = (function() {
      * Process a scanned asset
      * @param {string} assetId - The ID of the scanned asset
      */
-    async function processScannedAsset(assetId) {
+    async function processScannedAsset(assetId, scanMethod) {
+        // Add scanMethod parameter with default to manual if not specified
+        scanMethod = scanMethod || 'manual';
+        
         if (!state.isRoomAuditActive) return;
         
         // Check if the asset is in the expected assets list for this room
@@ -1119,7 +1140,7 @@ const AuditApp = (function() {
             if (!assetInRoom.found) {
                 // First time scanning this asset
                 await updateAssetLocation(assetInRoom.id, state.currentRoom);
-                markAssetAsFound(assetInRoom);
+                markAssetAsFound(assetInRoom, scanMethod); // Pass scan method
             } else {
                 // Asset already scanned
                 UI.showMessage(`Asset already scanned: ${assetInRoom.description} (${assetInRoom.id})`, 'info');
@@ -1135,10 +1156,10 @@ const AuditApp = (function() {
                     
                     // Update asset location to current room and mark as misplaced
                     await updateAssetLocation(assetId, state.currentRoom);
-                    addMisplacedAsset(asset);
+                    addMisplacedAsset(asset, scanMethod); // Pass scan method
                 } else {
                     // Asset not found in database - automatically add as unexpected
-                    addUnexpectedAsset(assetId);
+                    addUnexpectedAsset(assetId, scanMethod); // Pass scan method
                     UI.showMessage(`Unknown asset: ${assetId} - Added as unexpected asset`, 'warning');
                 }
             } catch (error) {
@@ -1178,12 +1199,13 @@ const AuditApp = (function() {
      * Mark an asset as found
      * @param {Object} asset - The asset to mark as found
      */
-    function markAssetAsFound(asset) {
+    function markAssetAsFound(asset, scanMethod) {
         asset.found = true;
         asset.status = 'Good';
         asset.last_located = state.currentRoom;
         asset.last_update = new Date().toISOString();
         asset.scanTime = new Date().toISOString();
+        asset.scanMethod = scanMethod; // Store the scan method
         
         // Update UI
         UI.updateAssetFoundStatus(asset, true);
@@ -1203,7 +1225,7 @@ const AuditApp = (function() {
      * Add a misplaced asset to scanned assets
      * @param {Object} asset - The misplaced asset
      */
-    function addMisplacedAsset(asset) {
+    function addMisplacedAsset(asset, scanMethod) {
         // Format the asset data
         const assetId = asset.id || asset['id:'] || '';
         const formattedAsset = {
@@ -1217,6 +1239,7 @@ const AuditApp = (function() {
             assignee_id: asset.assignee_id || 'Unassigned',
             last_update: asset.last_update || new Date().toISOString(),
             scanTime: new Date().toISOString(),
+            scanMethod: scanMethod, // Store the scan method
             found: true
         };
         
@@ -1236,7 +1259,7 @@ const AuditApp = (function() {
      * Add an unexpected asset to scanned assets
      * @param {string} assetId - The ID of the unexpected asset
      */
-    function addUnexpectedAsset(assetId) {
+    function addUnexpectedAsset(assetId, scanMethod) {
         const unexpectedAsset = {
             id: assetId,
             description: 'Unexpected Asset',
@@ -1248,6 +1271,7 @@ const AuditApp = (function() {
             assignee_id: 'Unassigned',
             last_update: new Date().toISOString(),
             scanTime: new Date().toISOString(),
+            scanMethod: scanMethod, // Store the scan method
             found: true
         };
         
@@ -1329,6 +1353,42 @@ const AuditApp = (function() {
             UI.showMessage(`Network error marking assets as missing: ${error.message}`, 'danger');
         }
     }
+    function undoScan(assetId) {
+        if (!state.isRoomAuditActive) {
+            UI.showMessage('Audit must be active to undo scans', 'warning');
+            return false;
+        }
+        
+        // Check if the asset is in the scanned assets list
+        const scannedIndex = state.scannedAssets.findIndex(a => a.id === assetId);
+        if (scannedIndex === -1) {
+            UI.showMessage(`Asset ${assetId} not found in scanned assets`, 'danger');
+            return false;
+        }
+        
+        const scannedAsset = state.scannedAssets[scannedIndex];
+        
+        // Remove from scanned assets
+        state.scannedAssets.splice(scannedIndex, 1);
+        
+        // If this is an expected asset, mark it as not found
+        const expectedAsset = state.expectedAssets.find(a => a.id === assetId);
+        if (expectedAsset) {
+            expectedAsset.found = false;
+            // Update UI to show asset as not found
+            UI.updateAssetFoundStatus(expectedAsset, false);
+            UI.updateScanCounter(state.expectedAssets);
+        }
+        
+        // Update the UI
+        UI.updateScannedAssetsTable(state.scannedAssets, state.currentRoom);
+        
+        // Show success message
+        UI.showMessage(`Scan for asset ${assetId} has been undone`, 'success');
+        
+        return true;
+    }
+    
     
     // Return public methods
     return {
@@ -1336,7 +1396,8 @@ const AuditApp = (function() {
         loadFloors,
         loadRooms,
         loadRoomAssets,
-        manualSearchAsset
+        manualSearchAsset,
+        undoScan  // Add this
     };
 })();
 
@@ -1393,7 +1454,24 @@ const UI = (function() {
         clone.querySelector('.asset-description').textContent = asset.description;
         clone.querySelector('.asset-id').textContent = asset.id;
         clone.querySelector('.asset-brand-model').textContent = `${asset.brand} ${asset.model}`;
-        clone.querySelector('.asset-assignee').textContent = asset.assignee_id;
+
+        const assigneeText = clone.querySelector('.asset-assignee');
+        if (asset.assignee_name) {
+            assigneeText.textContent = asset.assignee_name;
+        } else if (asset.assignee_id) {
+            // If we only have ID, try to make it look better than just a number
+            if (asset.assignee_id === 'Unassigned' || 
+                asset.assignee_id === 'Unknown' || 
+                typeof asset.assignee_id === 'string') {
+                assigneeText.textContent = asset.assignee_id;
+            } else {
+                // placeholder text
+                assigneeText.textContent = `Assignee: ${asset.assignee_id}`;
+            }
+        } else {
+            assigneeText.textContent = 'Unassigned';
+        }
+
         
         // Status
         const statusDot = clone.querySelector('.status-dot');
@@ -1521,12 +1599,53 @@ const UI = (function() {
         }
         
         // Assignee
-        clone.querySelector('.asset-assignee').textContent = asset.assignee_id || 'Unassigned';
+        const assigneeText = clone.querySelector('.asset-assignee');
+        if (asset.assignee_name) {
+            assigneeText.textContent = asset.assignee_name;
+        } else if (asset.assignee_id) {
+            // If we only have ID, try to make it look better than just a number
+            if (asset.assignee_id === 'Unassigned' || 
+                asset.assignee_id === 'Unknown' || 
+                typeof asset.assignee_id === 'string') {
+                assigneeText.textContent = asset.assignee_id;
+            } else {
+                //add placeholder text
+                assigneeText.textContent = `Assignee ${asset.assignee_id}`;
+            }
+        } else {
+            assigneeText.textContent = 'Unassigned';
+        }
         
         // Last updated
         const lastUpdated = clone.querySelector('.asset-last-updated');
         const date = new Date(asset.scanTime || asset.last_update);
         lastUpdated.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        
+        // Add scan method badge
+        const methodCell = clone.querySelector('.asset-scan-method');
+        if (methodCell && asset.scanMethod) {
+            let badgeClass = '';
+            switch(asset.scanMethod) {
+                case 'manual':
+                    badgeClass = 'bg-secondary';
+                    break;
+                case 'barcode':
+                    badgeClass = 'bg-info';
+                    break;
+                case 'rfid':
+                    badgeClass = 'bg-primary';
+                    break;
+                case 'qrcode':
+                    badgeClass = 'bg-success';
+                    break;
+                default:
+                    badgeClass = 'bg-secondary';
+            }
+            
+            methodCell.innerHTML = `<span class="badge ${badgeClass}">${asset.scanMethod}</span>`;
+        } else if (methodCell) {
+            methodCell.textContent = 'unknown';
+        }
         
         return clone;
     }
@@ -1577,21 +1696,25 @@ const UI = (function() {
      * @param {Object} asset - The asset
      * @param {boolean} highlight - Whether to highlight the row
      */
-    function updateAssetFoundStatus(asset, highlight = false) {
+    function updateAssetFoundStatus(asset, isFound) {
         const foundCell = document.getElementById(`found-status-${asset.id}`);
         if (foundCell) {
-            foundCell.className = 'found-yes';
-            foundCell.textContent = 'YES';
-        }
-        
-        // Highlight the row briefly to show it was found
-        if (highlight) {
-            const row = document.getElementById(`expected-asset-${asset.id}`);
-            if (row) {
-                row.classList.add('highlight-success');
-                setTimeout(() => {
-                    row.classList.remove('highlight-success');
-                }, 2000);
+            if (isFound) {
+                foundCell.className = 'found-yes';
+                foundCell.textContent = 'YES';
+                
+                // Highlight the row briefly to show it was found
+                const row = document.getElementById(`expected-asset-${asset.id}`);
+                if (row) {
+                    row.classList.add('highlight-success');
+                    setTimeout(() => {
+                        row.classList.remove('highlight-success');
+                    }, 2000);
+                }
+            } else {
+                // Reset to not found
+                foundCell.className = 'found-no';
+                foundCell.textContent = 'NO';
             }
         }
     }

@@ -132,7 +132,9 @@
                     <th>Location</th>
                     <th>Status</th>
                     <th>Assignee</th>
+                    <th>Scan Method</th> 
                     <th>Last Updated</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="scannedAssetsTableBody">
@@ -204,7 +206,13 @@
             <span class="status-text"></span>
         </td>
         <td class="asset-assignee"></td>
+        <td class="asset-scan-method"></td>
         <td class="asset-last-updated"></td>
+        <td class="asset-actions">
+            <button type="button" class="btn btn-sm btn-outline-danger undo-scan-btn">
+                <i class="bi bi-arrow-counterclockwise"></i> Undo
+            </button>
+        </td>
     </tr>
 </template>
 
