@@ -338,11 +338,6 @@ def mark_assets_missing(asset_ids, user_id=None, misplaced_threshold_days=30):
                     print(f"Info: Asset {asset_id} was recently misplaced (less than {misplaced_threshold_days} days ago), keeping status.")
                     error_count += 1
                     errors.append(f"Asset {asset_id} recently misplaced.")
-            elif asset.status in ["Good", "Found"]:
-                # Asset is already found somewhere, don't mark as missing
-                print(f"Info: Asset {asset_id} already found, skipping.")
-                error_count += 1
-                errors.append(f"Asset {asset_id} already found.")
             else:
                 # For any other status, mark as missing
                 old_status = asset.status
