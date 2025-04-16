@@ -7,7 +7,7 @@ from datetime import datetime
 class ScanEvent(db.Model):
     scan_id = db.Column(db.String, primary_key = True, nullable = False, unique = True)
     asset_id = db.Column(db.String, db.ForeignKey('asset.id'), nullable = False)
-    user_id = db.Column(db.String, db.ForeignKey('user.id'), nullable = False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable = False)
     room_id = db.Column(db.String, db.ForeignKey('room.room_id'), nullable = False)
     scan_time = db.Column(db.DateTime, default=db.func.current_timestamp())
     status = db.Column(db.String, nullable = False)

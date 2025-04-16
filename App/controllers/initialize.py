@@ -25,14 +25,9 @@ def initialize():
     print("Assets created.")
 
     # Sample data for assetassignments
-    create_asset_assignment(1, 1, 1, 1, datetime.now(), None)
-    create_asset_assignment(2, 2, 2, 2, datetime.now(), None)
+    # create_asset_assignment(1, 1, 1, 1, datetime.now(), None)
+    # create_asset_assignment(2, 2, 2, 2, datetime.now(), None)
     print("Asset assignments created.")
-
-    # Sample data for assignees
-    create_assignee(1, "John", "Doe", "john.doe@mail.com")
-    create_assignee(2, "Jane", "Smith", "jane.smith@mail.com")
-    print("Assignees created.")
 
     # Sample data for buildings
     create_building(1, "Main Building")
@@ -59,6 +54,11 @@ def initialize():
     # add_scan_event(1, 1, datetime.now(), "Checked In", "Routine check")
     # add_scan_event(2, 2, datetime.now(), "Checked Out", "For external use")
     # print("Scan events created.")
+
+    # Sample data for assignees
+    create_assignee( "John", "Doe", "john.doe@mail.com",1)
+    create_assignee( "Jane", "Smith", "jane.smith@mail.com",2)
+    print("Assignees created.")
 
     print("Sample data succesful.")
 

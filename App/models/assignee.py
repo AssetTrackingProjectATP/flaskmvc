@@ -5,7 +5,7 @@ class Assignee(db.Model):
     fname = db.Column(db.String(50), nullable=False)
     lname = db.Column(db.String(50), nullable=True) # Made nullable
     email = db.Column(db.String(100), nullable=True, unique=True) # Made nullable
-    room_id = db.Column(db.Integer, db.ForeignKey('room.room_id'), nullable=True) # Made nullable
+    room_id = db.Column(db.String(100), db.ForeignKey('room.room_id'), nullable=True) # Made nullable
 
     room = db.relationship('Room', backref=db.backref('assignees', lazy=True))
 
