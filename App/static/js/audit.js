@@ -1851,7 +1851,7 @@ const UI = (function() {
         
         if (method === 'manual') {
             manualSearchGroup.style.display = 'flex';
-            document.getElementById('searchInput').placeholder = "Enter asset ID or serial number...";
+            document.getElementById('searchInput').placeholder = "Enter asset ID...";
         } else {
             manualSearchGroup.style.display = 'none';
         }

@@ -44,7 +44,7 @@ def create_app(overrides={}):
     # Create app context
     app.app_context().push()
     
-    initialize()
+    # initialize()
     # Ensure default data exists (building, floor, and unknown room)
     with app.app_context():
         from App.controllers.initialize import ensure_defaults

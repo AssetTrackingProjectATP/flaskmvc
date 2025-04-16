@@ -171,15 +171,21 @@ def upload_csv(file_path):
 
                 except IntegrityError as e:
                     db.session.rollback()
-                    # Check if it's a duplicate key error
-                    if 'UNIQUE constraint failed' in str(e) or 'Duplicate entry' in str(e):
-                         results['errors'].append(f"Row {row_num}: Asset Tag '{row.get('Asset Tag', '')}' already exists, skipped.")
+                    # Check if it's specifically a duplicate primary key error
+                    # This check depends slightly on the DB engine, but often contains 'UNIQUE constraint' or 'Duplicate entry'
+                    error_str = str(e).lower() # Convert error to lowercase string for easier checking
+                    if 'unique constraint' in error_str \
+                    or 'duplicate entry' in error_str \
+                    or 'violates unique constraint' in error_str \
+                    or (hasattr(e, 'orig') and 'duplicate key value violates unique constraint' in str(e.orig).lower()): # More specific check for psycopg2
+                        results['errors'].append(f"Row {row_num}: Asset Tag '{row.get('Asset Tag', '')}' already exists, skipped.")
                     else:
-                         results['errors'].append(f"Row {row_num}: Database integrity error - {str(e)}")
+                        # Other type of IntegrityError (e.g., foreign key violation if a room didn't exist and wasn't handled)
+                        results['errors'].append(f"Row {row_num}: Database integrity error - {str(e)}")
                     results['skipped'] += 1
                 except Exception as e:
                     db.session.rollback()
-                    results['errors'].append(f"Row {row_num}: Error - {str(e)}")
+                    results['errors'].append(f"Row {row_num}: Error processing row - {str(e)}")
                     results['skipped'] += 1
 
             # Set success if at least one asset was imported
