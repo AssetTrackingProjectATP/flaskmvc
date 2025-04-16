@@ -32,10 +32,15 @@ def send_email(subject, recipients, template, **kwargs):
 def send_password_reset_email(user_email, reset_url):
     """Send password reset email with reset link"""
     subject = "Password Reset Request"
-    return send_email(
-        subject,
-        [user_email],
-        'email/password_reset.html',
-        reset_url=reset_url,
-        user_email=user_email
-    )
+    try:
+        return send_email(
+            subject,
+            [user_email],
+            'email/password_reset.html',
+            reset_url=reset_url,
+            user_email=user_email
+        )
+    except Exception as e:
+        print(f"Error sending password reset email to {user_email}: {str(e)}")
+        current_app.logger.error(f"Password reset email failed: {str(e)}")
+        return False
