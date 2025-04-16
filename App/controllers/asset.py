@@ -1,7 +1,7 @@
 # ... (existing imports) ...
 from datetime import datetime
 from App.controllers.room import get_room
-from App.models import Asset, Room
+from App.models import Asset, Room, ScanEvent
 import os, csv
 from App.models.asset import *
 from App.controllers.assignee import *
