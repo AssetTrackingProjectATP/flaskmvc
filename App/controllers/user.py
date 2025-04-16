@@ -1,3 +1,5 @@
+import os
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from App.models import User
 from App.database import db
 from werkzeug.security import generate_password_hash
@@ -85,3 +87,39 @@ def delete_user(id):
         db.session.rollback()
         print(f"Error deleting user: {e}")
         return False
+    
+  
+def generate_reset_token(email):
+    """Generate a secure time-limited token for password reset"""
+    secret_key = os.environ.get('SECRET_KEY', 'default-secret-key')
+    serializer = URLSafeTimedSerializer(secret_key)
+    return serializer.dumps(email, salt='password-reset-salt')
+
+def verify_reset_token(token, expiration=3600):
+    """Verify the reset token and return the associated email"""
+    secret_key = os.environ.get('SECRET_KEY', 'default-secret-key')
+    serializer = URLSafeTimedSerializer(secret_key)
+    try:
+        email = serializer.loads(
+            token,
+            salt='password-reset-salt',
+            max_age=expiration
+        )
+        return email
+    except (SignatureExpired, BadSignature):
+        return None
+
+def reset_password(email, new_password):
+    """Reset a user's password using their email"""
+    user = get_user_by_email(email)
+    if user:
+        user.set_password(new_password)
+        try:
+            db.session.commit()
+            return True
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error resetting password: {e}")
+            return False
+    return False
+

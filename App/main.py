@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.datastructures import  FileStorage
 
 
+from App.controllers.mail import init_mail
 from App.database import init_db
 from App.config import load_config
 
@@ -49,4 +50,5 @@ def create_app(overrides={}):
         from App.controllers.initialize import ensure_defaults
         ensure_defaults()
     
+    init_mail(app)
     return app

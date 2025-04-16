@@ -79,8 +79,8 @@
                         {% with messages = get_flashed_messages() %}
                             {% if messages %}
                                 {% for message in messages %}
-                                <div class="alert alert-danger d-flex align-items-center">
-                                    {{ message }}
+                                <div class="alert alert-info d-flex align-items-center">
+                                    {{ message|safe }}
                                 </div>
                                 {% endfor %}
                             {% endif %}
@@ -98,16 +98,10 @@
                             </div>
 
                             <div class="mb-4">
-                                <a href="#" class="text-decoration-none text-secondary float-end">Forgot your password?</a>
+                                <a href="{{ url_for('auth_views.forgot_password_page') }}" class="text-decoration-none text-secondary float-end">Forgot your password?</a>
                             </div>
 
                             <button type="submit" class="btn btn-primary mb-4">Log In</button>
-
-                            <div class="text-center">
-                                <small class="text-secondary">
-                                    Don't have an account? <a href="#" class="text-decoration-none text-secondary">Sign up</a>
-                                </small>
-                            </div>
                         </form>
                     </div>
 
@@ -174,5 +168,3 @@
         </div>
     </div>
 </div>
-
-</html>
