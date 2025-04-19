@@ -1,3 +1,4 @@
+
 /**
  * Asset Inventory Management
  * Handles loading, filtering, sorting, and managing inventory assets
@@ -182,6 +183,7 @@ function showMessage(message, type = 'info') {
 /**
  * API Functions
  */
+
 async function loadAssets() {
     try {
         showLoading(true);
@@ -189,8 +191,10 @@ async function loadAssets() {
         if (!response.ok) {
             throw new Error(`Failed to fetch assets: ${response.status} ${response.statusText}`);
         }
+
         const assets = await response.json();
         displayAssets(assets);
+
     } catch (error) {
         console.error('Error loading assets:', error);
         document.getElementById('assetTableBody').innerHTML = `
@@ -326,9 +330,11 @@ async function saveNewAsset() {
     }
 }
 
+
 /**
  * UI Functions
  */
+
 function displayAssets(assets) {
     const tableBody = document.getElementById('assetTableBody');
     if (!tableBody) return;
@@ -403,6 +409,7 @@ function displayAssets(assets) {
 }
 
 function handleSearch() {
+
     const searchInput = document.getElementById('searchInput');
     const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
     filterState.searchTerm = searchTerm;
@@ -487,7 +494,6 @@ function handleSearch() {
     if (resultsCount) {
         resultsCount.textContent = `${visibleCount} asset${visibleCount !== 1 ? 's' : ''} found`;
     }
-}
 
 function sortTable(columnIndex) {
     const table = document.querySelector('.inventory-table table');
@@ -557,9 +563,11 @@ function sortTable(columnIndex) {
     }
 }
 
+
 function clearAddAssetForm() {
     const form = document.getElementById('addAssetForm');
     if (form) form.reset();
+
     
     const errorDiv = document.getElementById('addAssetError');
     if (errorDiv) {
@@ -597,6 +605,7 @@ function setupEventListeners() {
         });
     });
     
+
     // Column filter buttons
     document.querySelectorAll('.column-filter').forEach(button => {
         button.addEventListener('click', () => {
@@ -655,4 +664,5 @@ function setupEventListeners() {
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     loadAssets();
+
 });
