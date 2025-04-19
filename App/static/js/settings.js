@@ -547,7 +547,7 @@ const LocationManager = {
         
         try {
             const response = await fetch(`/api/building/${buildingId}/delete`, {
-                method: 'POST'
+                method: 'DELETE'
             });
             
             const result = await response.json();
@@ -816,7 +816,7 @@ const LocationManager = {
         
         try {
             const response = await fetch(`/api/floor/${floorId}/delete`, {
-                method: 'POST'
+                method: 'DELETE'
             });
             
             const result = await response.json();
@@ -1049,7 +1049,7 @@ const LocationManager = {
         
         try {
             const response = await fetch(`/api/room/${roomId}/delete`, {
-                method: 'POST'
+                method: 'DELETE'
             });
             
             const result = await response.json();

@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from App.controllers.room import get_room
 from App.models import Asset, Room
 import os, csv
-from App.models.asset import *
 from App.controllers.assignee import *
 from App.controllers.scanevent import add_scan_event
 from flask_jwt_extended import current_user
@@ -11,6 +10,7 @@ from sqlalchemy.exc import IntegrityError # Import IntegrityError
 
 from App.database import db
 from App.models.room import Room
+from App.models.scanevent import ScanEvent
 
 # --- Existing functions (get_asset, get_all_assets, etc.) ---
 def get_asset(id):

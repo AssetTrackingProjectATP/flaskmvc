@@ -1,9 +1,10 @@
+from logging import log
 from App.models import Room, Floor, Building
-from App.controllers.asset import *
 from App.controllers.building import *
 from App.controllers.floor import *
 from App.database import db
 import os, csv
+
 
 def create_room(room_id, floor_id, room_name):
     new_room = Room(room_id=room_id, floor_id=floor_id, room_name=room_name)
@@ -15,7 +16,7 @@ def get_room(room_id):
     return Room.query.get(room_id)
 
 def get_rooms_by_floor(floor_id):
-    return Room.query.filter_by(floor_id=floor_id)
+    return Room.query.filter_by(floor_id=floor_id).all()
 
 def get_all_rooms():
     return Room.query.filter(Room.room_id != "UNKNOWN").all()
@@ -44,15 +45,18 @@ def update_room(room_id, floor_id, room_name):
 
 def delete_room(room_id):
     room = get_room(room_id)
-    if room:
-        assets = get_all_assets_by_room_id(room_id) # Check if there are any assets in the room
-        if assets:
-            return False  # Room is not empty, can't be deleted
-        else:
-            db.session.delete(room)
-            db.session.commit()
-            return True  # Room deleted successfully
-    return False  # Room not found
+    if not room:
+        return False  # Room not found
+
+    try:
+        db.session.delete(room)
+        db.session.commit()
+        return True
+    except Exception as e:
+        db.session.rollback()
+        log.error(f"Error deleting room: {e}")
+        return False
+
 
 # def upload_csv(file_path):
 #     with open(file_path, 'r', encoding='utf-8-sig') as file:

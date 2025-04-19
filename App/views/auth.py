@@ -79,7 +79,7 @@ def user_login_api():
 @auth_views.route('/api/identify', methods=['GET'])
 @jwt_required()
 def identify_user():
-    return jsonify({'message': f"email: {current_user.username}, id : {current_user.id}"})
+    return jsonify({'message': f"email: {current_user.email}, id : {current_user.id}"})
 
 # @auth_views.route('/api/logout', methods=['GET'])
 # @jwt_required()

@@ -38,12 +38,15 @@ def update_floor(floor_id, building_id, floor_name):
 
 def delete_floor(floor_id):
     floor = get_floor(floor_id)
-    if floor:
-        rooms = get_rooms_by_floor(floor_id) # Check if there are any rooms in the floor
-        if rooms:
-            return False  # Floor has rooms, can't be deleted
-        else:
-            db.session.delete(floor)
-            db.session.commit()
-            return True  # Floor deleted successfully
-    return False  # Floor not found
+    if not floor:
+        return False  # Floor not found
+
+    try:
+        db.session.delete(floor)
+        db.session.commit()
+        return True  # Floor deleted successfully
+    except Exception as e:
+        db.session.rollback()
+        log.error(f"Error deleting floor: {e}")
+        return False
+

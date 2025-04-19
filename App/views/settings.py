@@ -1,7 +1,7 @@
 
 from flask import Blueprint, render_template, jsonify, request, send_file
 from flask_jwt_extended import jwt_required, current_user
-from App.controllers.asset import get_all_assets_json, upload_csv
+from App.controllers.asset import get_all_assets_by_room_id, get_all_assets_json, upload_csv
 from App.controllers.user import update_user
 from App.controllers.building import (
     create_building, get_building, get_all_building_json, 
@@ -447,21 +447,26 @@ def update_building_endpoint(building_id):
     else:
         return jsonify({'success': False, 'message': 'Failed to update building. Database error.'}), 500
 
-@settings_views.route('/api/building/<building_id>/delete', methods=['POST'])
+@settings_views.route('/api/building/<building_id>/delete', methods=['DELETE'])
 @jwt_required()
 def delete_building_endpoint(building_id):
-    result = delete_building(building_id)
-    
-    if result:
+    if get_floors_by_building(building_id):
+        return jsonify({
+            'success': False,
+            'message': 'Failed to delete building. It may have associated floors or rooms.'
+        }), 400
+
+    if delete_building(building_id):
         return jsonify({
             'success': True,
             'message': 'Building deleted successfully'
         })
-    else:
-        return jsonify({
-            'success': False, 
-            'message': 'Failed to delete building. It may have associated floors or rooms.'
-        }), 400
+
+    return jsonify({
+        'success': False,
+        'message': 'Could not delete building.'
+    }), 400
+
 
 # Location management endpoints - Floors
 @settings_views.route('/api/floors/<building_id>', methods=['GET'])
@@ -534,21 +539,28 @@ def update_floor_endpoint(floor_id):
     else:
         return jsonify({'success': False, 'message': 'Failed to update floor'}), 500
 
-@settings_views.route('/api/floor/<floor_id>/delete', methods=['POST'])
+@settings_views.route('/api/floor/<floor_id>/delete', methods=['DELETE'])
 @jwt_required()
 def delete_floor_endpoint(floor_id):
-    result = delete_floor(floor_id)
-    
-    if result:
+    # Prevent deletion if there are rooms linked to the floor
+    if get_rooms_by_floor(floor_id):
+        return jsonify({
+            'success': False,
+            'message': 'Failed to delete floor. It may have associated rooms.'
+        }), 400
+
+    # Proceed to delete floor
+    if delete_floor(floor_id):
         return jsonify({
             'success': True,
             'message': 'Floor deleted successfully'
         })
-    else:
-        return jsonify({
-            'success': False, 
-            'message': 'Failed to delete floor. It may have associated rooms.'
-        }), 400
+
+    return jsonify({
+        'success': False,
+        'message': 'Could not delete Floor.'
+    }), 400
+
 
 # Location management endpoints - Rooms
 @settings_views.route('/api/rooms/<floor_id>', methods=['GET'])
@@ -621,21 +633,26 @@ def update_room_endpoint(room_id):
     else:
         return jsonify({'success': False, 'message': 'Failed to update room'}), 500
 
-@settings_views.route('/api/room/<room_id>/delete', methods=['POST'])
+@settings_views.route('/api/room/<room_id>/delete', methods=['DELETE'])
 @jwt_required()
 def delete_room_endpoint(room_id):
-    result = delete_room(room_id)
-    
-    if result:
+    if get_all_assets_by_room_id(room_id):
+        return jsonify({
+            'success': False,
+            'message': 'Failed to delete room. It may be in use by assets.'
+        }), 400
+
+    if delete_room(room_id):
         return jsonify({
             'success': True,
             'message': 'Room deleted successfully'
         })
-    else:
-        return jsonify({
-            'success': False, 
-            'message': 'Failed to delete room. It may be in use by assets.'
-        }), 400
+
+    return jsonify({
+        'success': False,
+        'message': 'Could not delete room.'
+    }), 400
+
         
 @settings_views.route('/api/users', methods=['GET'])
 @jwt_required()

@@ -46,13 +46,16 @@ def update_building(building_id, building_name):
 
 def delete_building(building_id):
     building = get_building(building_id)
-    if building:
-        floors = get_floors_by_building(building_id) # Check if there are any floors in the building
-        if floors:
-            return False  # Building has floors, can't be deleted
-        else:
-            db.session.delete(building)
-            db.session.commit()
-            return True  # Building deleted successfully
-    return False  # Building not found
+    if not building:
+        return False  # Building not found
+
+    try:
+        db.session.delete(building)
+        db.session.commit()
+        return True  # Building deleted successfully
+    except Exception as e:
+        db.session.rollback()
+        # Optionally log the error: log.error(f"Error deleting building: {e}")
+        return False
+
 
